@@ -94,6 +94,11 @@ export class FitnessEquipmentSensor extends Ant.AntPlusSensor {
 				this.transmissionType = data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA + 3);
 				this.state.DeviceID = this.deviceID;
 				break;
+			case Constants.MESSAGE_CHANNEL_EVENT:
+				this.emit('eventData', { message:data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA), 
+										 code:data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA+1) });
+                break;
+
 			default:
 				break;
 		}
@@ -116,6 +121,9 @@ export class FitnessEquipmentScanner extends Ant.AntPlusScanner {
 	private states: { [id: number]: FitnessEquipmentScanState } = {};
 
 	decodeData(data: Buffer) {
+
+        const msgId = data.readUInt8(Messages.BUFFER_INDEX_MSG_TYPE);
+
 		if (data.length <= Messages.BUFFER_INDEX_EXT_MSG_BEGIN || !(data.readUInt8(Messages.BUFFER_INDEX_EXT_MSG_BEGIN) & 0x80)) {
 			console.log('wrong message format');
 			return;
@@ -145,6 +153,10 @@ export class FitnessEquipmentScanner extends Ant.AntPlusScanner {
 			case Constants.MESSAGE_CHANNEL_BURST_DATA:
 				updateState(this, this.states[deviceId], data);
 				break;
+			case Constants.MESSAGE_CHANNEL_EVENT:
+				this.emit('eventData', { message:data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA), 
+										 code:data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA+1) });
+                break;
 			default:
 				break;
 		}

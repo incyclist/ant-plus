@@ -10,6 +10,8 @@ const FE = require('./build/fitness-equipment-sensors');
 module.exports = {
 	GarminStick2: Ant.GarminStick2,
 	GarminStick3: Ant.GarminStick3,
+	Messages:Ant.Messages,
+	Constants:Ant.Constants,
 	HeartRateSensor: HRS.HeartRateSensor,
 	HeartRateScanner: HRS.HeartRateScanner,
 	StrideSpeedDistanceSensor: SSD.StrideSpeedDistanceSensor,

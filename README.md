@@ -1,6 +1,10 @@
-# ant-plus
+# gd-ant-plus
 
-A node.js module for ANT+
+A node.js module for ANT+ 
+
+with some small enhancements that enable 
+- setting up a FitnessEquipment Device 
+- sending messages from FitnessEquipmentSensor to Device and checking status of these messages
 
 ## Prerequisites
 
@@ -13,13 +17,13 @@ Use [Zadig](http://sourceforge.net/projects/libwdi/files/zadig/) to install the 
 ## Install
 
 ```sh
-npm install ant-plus
+npm install gd-ant-plus
 ```
 
 ## usage
 
 ```javascript
-var Ant = require('ant-plus');
+var Ant = require('gd-ant-plus');
 ```
 
 #### Create USB stick

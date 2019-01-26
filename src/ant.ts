@@ -319,6 +319,23 @@ export class USBDriver extends events.EventEmitter {
 			.filter(d => USBDriver.deviceInUse.indexOf(d) === -1);
 	}
 
+	blockDevice( device : usb.Device ) {
+		USBDriver.deviceInUse.push(device);        
+	}
+
+	unblockDevice( device : usb.Device ) {
+        let deviceIdx = undefined;
+        for ( var i=0; i<USBDriver.deviceInUse.length; i++) {
+            let blocked = USBDriver.deviceInUse[i];
+            if (blocked.deviceAddress==device.deviceAddress) {
+                deviceIdx = i;
+            }
+        }
+        if (deviceIdx!=undefined) {
+            USBDriver.deviceInUse.splice(deviceIdx,1);  
+        }
+	}
+
 	is_present(): boolean {
 		return this.getDevices().length > 0;
 	}
@@ -403,6 +420,7 @@ export class USBDriver extends events.EventEmitter {
 
 		return true;
 	}
+
 
 	openAsync(cb: (err: Error) => void): ICancellationToken {
 		let ct: CancellationTokenListener;
