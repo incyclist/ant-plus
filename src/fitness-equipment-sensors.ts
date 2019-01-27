@@ -127,7 +127,15 @@ export class FitnessEquipmentScanner extends Ant.AntPlusScanner {
         const msgId = data.readUInt8(Messages.BUFFER_INDEX_MSG_TYPE);
 
 		if (data.length <= Messages.BUFFER_INDEX_EXT_MSG_BEGIN || !(data.readUInt8(Messages.BUFFER_INDEX_EXT_MSG_BEGIN) & 0x80)) {
-			console.log('wrong message format');
+			switch (data.readUInt8(Messages.BUFFER_INDEX_MSG_TYPE)) {
+				case Constants.MESSAGE_CHANNEL_EVENT:
+					this.emit('eventData', { message:data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA), 
+											 code:data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA+1) });
+					break;
+				default:
+					console.log('wrong message format');
+					break;
+			}	
 			return;
 		}
 
