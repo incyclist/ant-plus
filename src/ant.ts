@@ -232,6 +232,15 @@ export class Messages {
 		return this.buildMessage(payload, Constants.MESSAGE_CHANNEL_UNASSIGN);
 	}
 
+	static acknowledgedData  ( payload : number[] ) {
+		return Messages.buildMessage( payload, Constants.MESSAGE_CHANNEL_ACKNOWLEDGED_DATA ) 
+	}
+
+	static broadcastData  ( payload : number[] ) {
+		return Messages.buildMessage( payload, Constants.MESSAGE_CHANNEL_BROADCAST_DATA ) 
+	}
+	
+
 	static buildMessage(payload: number[] = [], msgID = 0x00): Buffer {
 		const m: number[] = [];
 		m.push(Constants.MESSAGE_TX_SYNC);

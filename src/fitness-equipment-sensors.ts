@@ -51,6 +51,8 @@ class FitnessEquipmentSensorState {
 	SerialNumber?: number;
 
 	PairedDevices: any[] = [];
+
+	RawData : Buffer;
 }
 
 class FitnessEquipmentScanState extends FitnessEquipmentSensorState {
@@ -189,6 +191,8 @@ function updateState(
 	sensor: FitnessEquipmentSensor | FitnessEquipmentScanner,
 	state: FitnessEquipmentSensorState | FitnessEquipmentScanState,
 	data: Buffer) {
+
+	state.RawData = data; 
 
 	const page = data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA);
 	switch (page) {
