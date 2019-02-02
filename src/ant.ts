@@ -391,7 +391,7 @@ export class USBDriver extends events.EventEmitter {
 			}
 
 			if (data.readUInt8(0) !== 0xA4) {
-				throw 'SYNC missing';
+				this.emit('error', { error: 'SYNC missing', context:data });
 			}
 
 			const len = data.length;

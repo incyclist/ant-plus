@@ -26,7 +26,7 @@ function startWorker(stick) {
 
 function sendFromQueue(stick) {
 
-	if (stick==undefined || stick.queue==undefined || stick.queue.isEmpty() )
+	if (stick==undefined || stick.queue==undefined)
 		return;
 	
 	if (stick.currentCmd!=undefined) {
@@ -54,6 +54,9 @@ function sendFromQueue(stick) {
 		}
 	}
 	else {
+        if (stick.queue.isEmpty())
+			return;
+					
 		stick.currentCmd = stick.queue.dequeue();
 		stick.currentCmd.tsStart = Date.now();
 		let msg = stick.currentCmd.msg;
@@ -420,6 +423,10 @@ function start() {
 		console.log('shutdown');
 		scanner.detach(scanner.channel);
 	});
+
+	stick.on('error', function(e) {
+		console.log ('error: '+e.message + ', context:'+e.context);
+	})
 
 	if (stick.is_present()) {	
 		if (!stick.open()) {
