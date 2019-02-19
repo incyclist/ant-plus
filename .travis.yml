@@ -1,8 +1,9 @@
 language: node_js
 node_js:
 - '0.10'
-before_install:
+before_install
+- sudo apt-get update
+- sudo apt-get install -y build-essential libudev-dev
 - npm install -g typescript@1.0
-- sudo apt-get install build-essential libudev-dev
 script:
 - npm prepare
