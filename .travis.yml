@@ -6,7 +6,7 @@ before_install:
 - npm install -g typescript
 addons:
   sonarcloud:
-    organization: "gdoumen" # the key of the org you chose at step #3
+    organization: "gdoumen-github" # the key of the org you chose at step #3
     token:
       secure: "$SONAR_TOKEN"  
 script:
