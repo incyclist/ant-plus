@@ -1,6 +1,6 @@
 {
 	"name": "gd-ant-plus",
-	"version": "0.0.26",
+	"version": "0.0.27",
 	"description": "A node module for ANT+ - forked from longhorn/ant-plus",
 	"main": "ant-plus.js",
 	"scripts": {
