@@ -68,8 +68,6 @@ describe ( 'usbdriver', ()=> {
             usb.getDeviceList = jest.fn( ()=> [GarminStick2])
             const res = USBDriver.listDevices( (d)=> d.deviceDescriptor.idVendor === 0x0fcf && d.deviceDescriptor.idProduct === 0x1008);
             expect(res.length).toBe(1);
-            console.log(res)
-
         })
 
 
