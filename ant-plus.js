@@ -12,6 +12,7 @@ module.exports = {
 	GarminStick3: Ant.GarminStick3,
 	Messages:Ant.Messages,
 	Constants:Ant.Constants,
+	getSticks: Ant.USBDriver.listDevices,
 	HeartRateSensor: HRS.HeartRateSensor,
 	HeartRateScanner: HRS.HeartRateScanner,
 	StrideSpeedDistanceSensor: SSD.StrideSpeedDistanceSensor,

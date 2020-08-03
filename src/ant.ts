@@ -301,6 +301,10 @@ class CancellationTokenListener {
 	}
 }
 
+export class DeviceInfo extends usb.Device {
+	inUse : boolean
+}
+
 export class USBDriver extends events.EventEmitter {
 	private static deviceInUse: usb.Device[] = [];
 	private device: usb.Device;
@@ -326,6 +330,18 @@ export class USBDriver extends events.EventEmitter {
 		return allDevices
 			.filter((d) => d.deviceDescriptor.idVendor === this.idVendor && d.deviceDescriptor.idProduct === this.idProduct)
 			.filter(d => USBDriver.deviceInUse.indexOf(d) === -1);
+	}
+
+	static listDevices( filterFn?: (d:usb.Device)=>boolean) {
+		const allDevices = usb.getDeviceList();
+		const info = [...allDevices];
+		info.forEach( d => (d as DeviceInfo).inUse = USBDriver.deviceInUse.indexOf(d)!==-1 ) 
+
+		if ( filterFn===undefined)
+			return info;
+
+		return info
+			.filter( filterFn)
 	}
 
 	blockDevice( device : usb.Device ) {
