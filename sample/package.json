@@ -12,7 +12,7 @@
 	},
 	"license": "MIT",
 	"dependencies": {
-		"gd-ant-plus": "0.0.26",
+		"gd-ant-plus": "0.0.28",
 		"queue-fifo": "^0.2.5"
 	}
 }
