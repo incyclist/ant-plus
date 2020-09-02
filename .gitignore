@@ -35,3 +35,6 @@ typings
 # VS Code settings
 .settings
 .vscode
+
+#Snyk settings
+.snyk
