@@ -1,6 +1,6 @@
 {
 	"name": "gd-ant-plus",
-	"version": "0.0.29",
+	"version": "0.0.30",
 	"description": "A node module for ANT+ - forked from longhorn/ant-plus",
 	"main": "ant-plus.js",
 	"scripts": {
@@ -24,12 +24,12 @@
 		"usb": "^1.7.0"
 	},
 	"devDependencies": {
-		"@types/jest": "^26.0.8",
-		"@types/node": "^6.14.10",
-		"@types/usb": "^1.1.6",
-		"jest": "^26.2.2",
-		"ts-jest": "^26.1.4",
-		"typescript": "^3.9.7"
+		"@types/jest": "^26.0.23",
+		"@types/node": "^15.6.0",
+		"@types/usb": "^1.5.2",
+		"jest": "^26.6.3",
+		"ts-jest": "^26.5.6",
+		"typescript": "^4.2.4"
 	},
 	"files": [
 		"ant-plus.js",
