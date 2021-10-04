@@ -318,10 +318,13 @@ export class USBDriver extends events.EventEmitter {
 
 	maxChannels: number = 0;
 	canScan: boolean = false;
+	props: any;
+	waitingForStartup: boolean = false;
 
-	constructor(private idVendor: number, private idProduct: number, dbgLevel = 0) {
-		super();
+	constructor(private idVendor: number, private idProduct: number, dbgLevel=0, props={}) {
+		super();		
 		this.setMaxListeners(50);
+		this.props = props;
 		usb.setDebugLevel(dbgLevel);
 	}
 
@@ -393,7 +396,7 @@ export class USBDriver extends events.EventEmitter {
 			return false;
 		}
 		USBDriver.deviceInUse.push(this.device);
-
+		this.waitingForStartup = true;
 		this.inEp = this.iface.endpoints[0] as usb.InEndpoint;
 
 		this.inEp.on('data', (data: Buffer) => {
@@ -430,18 +433,48 @@ export class USBDriver extends events.EventEmitter {
 		});
 
 		this.inEp.on('error', (err: any) => {
-			//console.log('ERROR RECV: ', err);
+			if (this.props.debug) {
+				const logger = this.props.logger || console;
+				logger.log('ERROR RECV: ', err);
+			}
 		});
 
 		this.inEp.on('end', () => {
-			//console.log('STOP RECV');
+			if (this.props.debug) {
+				const logger = this.props.logger || console;
+				logger.log('STOP RECV: ');
+			}
 		});
 
 		this.inEp.startPoll();
 
 		this.outEp = this.iface.endpoints[1] as usb.OutEndpoint;
 
+		let startupCnt = 0;
+		let tsStart = Date.now();
+		let tsTimeout = tsStart + 1000;
 		this.reset();
+		let startupTimer = setInterval(() => {
+			if (!this.waitingForStartup ) {
+				clearInterval(startupTimer);
+				return;
+			}
+			if (Date.now() > tsTimeout) {
+				startupCnt++;
+				if (this.props.maxAttempts && startupCnt > this.props.maxAttempts) {
+					clearInterval(startupTimer);
+					this.waitingForStartup = false;
+					this.emit('error', { error: 'Startup timeout', context: 'timeout' });
+					return;
+				}
+				else {
+					tsStart = Date.now();
+					tsTimeout = tsStart + 1000;
+					this.reset();			
+				}
+			}
+
+		},100)
 
 		return true;
 	}
@@ -565,7 +598,11 @@ export class USBDriver extends events.EventEmitter {
 	}
 
 	write(data: Buffer) {
-		//console.log('DATA SEND: ', data);
+		if (this.props.debug) {
+			const logger = this.props.logger || console;
+			logger.log('DATA SEND: ', data);
+		}
+		
 		this.outEp.transfer(data, (error) => {
 			if (error) {
 				//console.log('ERROR SEND: ', error);
@@ -574,9 +611,14 @@ export class USBDriver extends events.EventEmitter {
 	}
 
 	read(data: Buffer) {
-		//console.log('DATA RECV: ', data);
+		if (this.props.debug) {
+			const logger = this.props.logger || console;
+			logger.log('DATA RECV: ', data);
+		}
+		
 		const messageID = data.readUInt8(2);
 		if (messageID === Constants.MESSAGE_STARTUP) {
+			this.waitingForStartup = false;
 			this.write(Messages.requestMessage(0, Constants.MESSAGE_CAPABILITIES));
 		} else if (messageID === Constants.MESSAGE_CAPABILITIES) {
 			this.maxChannels = data.readUInt8(3);
