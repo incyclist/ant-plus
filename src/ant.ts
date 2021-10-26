@@ -329,10 +329,18 @@ export class USBDriver extends events.EventEmitter {
 	}
 
 	private getDevices() {
-		const allDevices = usb.getDeviceList();
-		return allDevices
-			.filter((d) => d.deviceDescriptor.idVendor === this.idVendor && d.deviceDescriptor.idProduct === this.idProduct)
-			.filter(d => USBDriver.deviceInUse.indexOf(d) === -1);
+		try {
+			const allDevices = usb.getDeviceList();
+			return allDevices
+				.filter((d) => d.deviceDescriptor.idVendor === this.idVendor && d.deviceDescriptor.idProduct === this.idProduct)
+				.filter(d => USBDriver.deviceInUse.indexOf(d) === -1);
+		}
+		catch (err) { 
+			const logger = this.props.logger || console;
+			logger.log('getDevices ERROR :', err);
+
+			return [];
+		}
 	}
 
 	static listDevices( filterFn?: (d:usb.Device)=>boolean) {
