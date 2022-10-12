@@ -1,6 +1,6 @@
 {
 	"name": "incyclist-ant-plus",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Incyclist library for ANT+ - originally forked from longhorn/ant-plus",
 	"dependencies": {
 		"queue-fifo": "^0.2.6"
@@ -17,7 +17,6 @@
 	"optionalDependencies": {
 		"usb": "^2.5.2"
 	},
-
 	"scripts": {
 		"test": "jest --coverage",
 		"build": "tsc",
@@ -31,7 +30,6 @@
 		"example": "./sample",
 		"lib": "./src"
 	},
-
 	"keywords": [
 		"Incyclist",
 		"ANT",
