@@ -140,7 +140,8 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 
 		logEvent ( {message:'sending', command:logStr})		
 		const res = await channel.sendMessage(data)
-		logEvent( {message:'response', command:logStr, response:res})		
+		logEvent( {message:'response', command:logStr, response:res})
+		return res;		
 
 	}
 
