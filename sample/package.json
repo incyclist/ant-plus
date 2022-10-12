@@ -13,6 +13,8 @@
 	"license": "MIT",
 	"dependencies": {
 		"gd-ant-plus": "0.0.34",
-		"queue-fifo": "^0.2.5"
+		"incyclist-ant-plus": "file:..",
+		"queue-fifo": "^0.2.5",
+		"usb": "^2.5.2"
 	}
 }

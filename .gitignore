@@ -28,6 +28,7 @@ node_modules
 
 # Compiled ts files
 build
+lib
 
 # Typescript typings
 typings

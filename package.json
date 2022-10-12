@@ -1,48 +1,53 @@
 {
-	"name": "gd-ant-plus",
-	"version": "0.0.34",
-	"description": "A node module for ANT+ - forked from longhorn/ant-plus",
-	"main": "ant-plus.js",
+	"name": "incyclist-ant-plus",
+	"version": "0.1.0",
+	"description": "Incyclist library for ANT+ - originally forked from longhorn/ant-plus",
+	"dependencies": {
+		"queue-fifo": "^0.2.6"
+	},
+	"devDependencies": {
+		"@types/jest": "^27.0.2",
+		"@types/node": "^15.6.0",
+		"@types/usb": "^2.0.5",
+		"jest": "^27.2.4",
+		"nodemon": "^2.0.20",
+		"ts-jest": "^27.0.5",
+		"typescript": "^4.2.4"
+	},
+	"optionalDependencies": {
+		"usb": "^2.5.2"
+	},
+
 	"scripts": {
 		"test": "jest --coverage",
-		"prepare": "tsc"
+		"build": "tsc",
+		"dev": "nodemon --watch src -e ts,js --exec npm run build"
 	},
+	"files": [
+		"lib/"
+	],
+	"main": "lib/index.js",
+	"directories": {
+		"example": "./sample",
+		"lib": "./src"
+	},
+
 	"keywords": [
+		"Incyclist",
 		"ANT",
 		"ANT+"
 	],
 	"author": {
 		"name": "Guido Doumen",
-		"email": "git@doumen-laumen.de"
+		"email": "incyclist@doumen-laumen.de"
 	},
 	"license": "MIT",
 	"engines": {
-		"node": ">=6.0.0"
-	},
-	"dependencies": {
-		"queue-fifo": "^0.2.6",
-		"usb": "^1.9.2"
-	},
-	"devDependencies": {
-		"@types/jest": "^27.0.2",
-		"@types/node": "^15.6.0",
-		"@types/usb": "^1.5.2",
-		"jest": "^27.2.4",
-		"ts-jest": "^27.0.5",
-		"typescript": "^4.2.4"
-	},
-	"files": [
-		"ant-plus.js",
-		"src/",
-		"build/"
-	],
-	"directories": {
-		"example": "./sample",
-		"lib": "./src"
+		"node": ">=16.0.0"
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/gdoumen/ant-plus.git"
+		"url": "https://github.com/incyclist/ant-plus.git"
 	},
-	"bugs": "https://github.com/gdoumen/ant-plus/issues"
+	"bugs": "https://github.com/incyclist/ant-plus/issues"
 }

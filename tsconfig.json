@@ -1,20 +1,21 @@
 {
 	"compilerOptions": {
-		"target": "ES6",
+		"target": "ES2015",
+    "esModuleInterop": true,
+    "allowJs": true,
 		"module": "commonjs",
-		"esModuleInterop": true,		
-		"sourceMap": true,
-		"baseUrl": "./src", 
-		"outDir": "build",
-		"declaration": true,
-		"types":["node","jest"]
-	},
+        "declaration": true,
+        "outDir": "lib",
+        "removeComments": true
+    },
     "include": [
+        "src/**/*.js",
         "src/**/*.ts"
-      ],	
-	"exclude": [
-		"src/**/*.test.*",
-		"./node_modules"
-	  ] 
-
+      ],
+    "exclude": [
+      "src/**/*.spec.*",
+      "src/**/*.test.*",
+        "src/**/*.tests.*",
+        "./node_modules" 
+      ]
 }

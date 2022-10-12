@@ -1,10 +1,7 @@
-# gd-ant-plus
+# incyclist-ant-plus
 
-A node.js module for ANT+ 
+Module to interface ANT+ Sensors/Devices, developed and maintained for [Incyclist](https://incyclist.com) Indoor Cycling App
 
-with some small enhancements that enable 
-- setting up a FitnessEquipment Device 
-- sending messages from FitnessEquipmentSensor to Device and checking status of these messages
 
 ## Prerequisites
 
@@ -17,198 +14,184 @@ Use [Zadig](http://sourceforge.net/projects/libwdi/files/zadig/) to install the 
 ## Install
 
 ```sh
-npm install gd-ant-plus
+npm install incyclist-ant-plus
 ```
 
-## usage
+## Usage
+
+#### __Create and connect to USB Device (stick)__
 
 ```javascript
-var Ant = require('gd-ant-plus');
+const {AntDevice} = require('incyclist-ant-plus/lib/ant-device')
+
+const ant = new AntDevice({startupTimeout:2000})
+const success = await ant.open()
 ```
 
-#### Create USB stick
+The library will automatically detect the matching Stick type ( Garmin2 / Garmin3)
+
+#### __Reserve the next available channel__
 
 ```javascript
-var stick = new Ant.GarminStick3;
+const channel = await ant.getChannel();
 ```
 
-#### Create sensors
+#### __Use channel to scan for Sensors__
 
 ```javascript
-var sensor = new Ant.HeartRateSensor(stick);
+const {BicyclePowerSensor,FitnessEquipmentSensor,HeartRateSensor} = require('incyclist-ant-plus');
+
+//channel.on('detect', (profile, id) => console.log('detected',profile,id))
+
+//channel.on('data', (profile, id, data) => console.log('data',profile,id, data))
+
+channel.attach(new BicyclePowerSensor())
+channel.attach(new HeartRateSensor())
+channel.attach(new FitnessEquipmentSensor())
+
+const detected = await channel.startScan({timeout:10000})
+console.log(detected)
 ```
 
-#### Attach events
+#### __Stop ongoing scan__
+
+might be used when scan should be stopped as soon as first/specific device is detected
+
+has to be called explicitly if scan is done without timeout
 
 ```javascript
-sensor.on('hbData', function (data) {
-    console.log(data.DeviceID, data.ComputedHeartRate);
-});
+channel.stopScan()
+``` 
 
-stick.on('startup', function () {
-    sensor.attach(0, 0);
-});
-```
 
-#### Open stick
+#### __Use channel to connect to a specific Sensor__
 
 ```javascript
-if (!stick.open()) {
-    console.log('Stick not found!');
+const {FitnessEquipmentSensor} = require('incyclist-ant-plus');
+
+channel.on('data', (profile, id, data) => console.log('data',profile,id, data))
+
+const sensor = new FitnessEquipmentSensor()
+const success = await channel.startSensor(sensor)
+console.log(detected)
+
+if (success) {
+	console.log( "set User Weight = 78kg, Bike Weight= 10kg" );
+	await sensor.sendUserConfiguration(78,10);
+	
+	console.log( "set slope to 1.1%" );
+	await sensor.sendTrackResistance(1.1);
 }
 ```
 
-### scanning
-
-```javascript
-sensor.on('hbData', function (data) {
-    console.log(data.DeviceID, data.ComputedHeartRate);
-});
-
-stick.on('startup', function () {
-    sensor.scan();
-);
-
-if (!stick.open()) {
-    console.log('Stick not found!');
-}
-```
 
 ## Important notes
 
-* never attach a sensor before receiveing the startup event
-* never attach a new sensor before receiving the attached or detached event of the previous sensor
-* never detach a sensor before receiving the attached or detached event of the previous sensor
+* In order to avoid problems at next launch, always call ant.close() at the end of the program
 
-## Objects
+## Writing your customized Classes
 
-### GarminStick2 and GarminStick3
+The library was designed so that the implemention of the interfaces can be customized
 
-#### properties
+As Incyclist is developed as React app running in Electron, it will require a special implementions of the IAntDevice interface
+- IpcAntDevice: to be used in the renderer process to communicate with the AntDevice class in the Electron main process
+- WinAntDevice: A special implementation using ANT.DLL, to remove the dependency to [Zadig](http://sourceforge.net/projects/libwdi/files/zadig/) 
 
-##### maxChannels
 
-The maximum number of channels that this stick supports; valid only after startup event fired.
 
-#### methods
+## Classes
 
-##### is_present()
+### AntDevice (IAntDevice)
 
-Checks if the stick is present. Returns true if it is, false otherwise.
+#### Constructor
 
-##### open()
+```typescript
+constructor( props?: {
+	deviceNo?: number;
+	startupTimeout?: number;
+	debug?: boolean;
+	logger?: { logEvent?: (event)=>void, log:(...args)=>void};
+})
+```
 
-Tries to open the stick. Returns false on failure.
+_deviceNo_: In case you have multiple sticks connected, identifies the stick number. (0=first,1=second,...). Adding/removing a stick will not be recognized during the session ( i.e. after first use of constructor)
 
-##### openAsync(callback)
+_startupTimeout_: timeout (in ms) after which the startup attempt should be stopped. If no timeout is given, the `open()`call will be blocking.
 
-Tries to open the stick, waiting for it if not available right now. Returns a cancelation token with a method `cancel` you can use to stop waiting.
-`callback` is a funcion accepting a single `Error` parameter and it will be called when the stick is open (with the parameter undefined) or in case of failure (with the parameter set to the error).
+_debug_: enables debug mode ( message logging)
 
-##### close()
+_logger_: logger to be use for debug logging
 
-Closes the stick.
 
-#### events
+#### Methods
 
-##### startup
+__open__
+```typescript
+open():Promise<boolean>
+```
 
-Fired after the stick is correctly initialized.
+Tries to open the stick. 
+Returns `true` on success and `false` on failure.
 
-##### shutdown
+__close__
+```typescript
+close():Promise<boolean>
+```
 
-Fired after the stick is correctly closed.
+Tries to close the stick and all opened channels.
+Returns `true` on success and `false` on failure.
 
-### Common to all Sensors
 
-#### methods
+__getMaxChannels__
 
-##### attach(channel, deviceId)
+```typescript
+getMaxChannels():number
+```
 
-Attaches the sensors, using the specified channel and deviceId (use 0 to connect to the first device found).
+returns the maximum number of channels that this stick supports; valid only after stick was opened successfully.
 
-##### detach()
+__getDeviceNumber__
 
-Detaches the sensor.
+```typescript
+getDeviceNumber():number
+```
 
-#### events
+returns the current device(stick) number (0=first,1=second,...); valid only after stick was opened successfully.
 
-##### attached
+__getChannel__
+```typescript
+getChannel():IChannel
+```
 
-Fired after the sensor is correctly attached.
+Tries to reserve the next available channel - up to the maximum number of channels as indicated by `getMaxChannels()`
 
-##### detached
+Returns a Channel object on success and `null` on failure.
 
-Fired after the sensor is correctly detached.
+__freeChannel__
+```typescript
+closeChannel(IChannel):void
+```
 
-### Common to all Scanners
+removes the reservation for a channel.<br>
+**Note** This should never be called directly. It will be called by the methods of `stopScanner()` and `stopSensor()`
 
-#### methods
+__write__
+```typescript
+write(data:Buffer):void
+```
 
-##### scan()
+sends a message to the ANT+Device
 
-Attaches the sensors and starts scanning for data from every devices in range.
 
-##### detach()
+### Channel
 
-Detaches the sensor.
+_TODO_
 
-#### events
+### Sensor
 
-##### attached
+_TODO_
 
-Fired after the sensor is correctly attached.
 
-##### detached
+### Available Sesnsors
 
-Fired after the sensor is correctly detached.
-
-### HeartRate
-
-#### events
-
-##### hbData
-
-Fired when new heartbeat data is received.
-
-### SpeedCadence
-
-#### methods
-
-#### setWheelCircumference(circumferenceInMeters)
-
-Calibrates the speed sensor. Defaults to an ~ 700c wheel, 2.118
-
-#### events
-
-##### speedData
-
-Fired when a new wheel speed is calculated
-
-##### cadenceData
-
-Fired when a new pedal cadence is calculated
-
-### StrideSpeedDistance
-
-#### events
-
-##### ssdData
-
-Fired when new data been calculated.
-
-### BicyclePower
-
-#### events
-
-##### powerData
-
-Fired when new power has been calculated.
-
-### FitnessEquipment
-
-#### events
-
-##### fitnessData
-
-Fired when new data is received.
+_TODO_

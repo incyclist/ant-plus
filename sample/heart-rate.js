@@ -1,7 +1,7 @@
-const {BicyclePowerSensor} = require('incyclist-ant-plus');
+const {HeartRateSensor} = require('incyclist-ant-plus');
 const {AntDevice} = require('incyclist-ant-plus/lib/ant-device')
 
-const ant = new AntDevice({startupTimeout:2000})
+const ant = new AntDevice({startupTimeout:2000 /*,debug:true, logger:console*/})
 
 async function main( deviceID=-1) {
 
@@ -17,25 +17,29 @@ async function main( deviceID=-1) {
 		return;
 	}
 
-	channel.on('data', onData)
 
 	if (deviceID===-1) { // scanning for device
 		console.log('Scanning for sensor(s)')
-		const bicyclePowerSensor = new BicyclePowerSensor()
+		const sensor = new HeartRateSensor()
+        channel.on('data', onData)
 		channel.startScanner()
-		channel.attach(bicyclePowerSensor)
+		channel.attach(sensor)
 	}
 	else  {  // device ID known
 		console.log(`Connecting with id=${deviceID}`)
-		const bicyclePowerSensor = new BicyclePowerSensor(deviceID)
-		channel.startSensor(bicyclePowerSensor)
-
+		const sensor = new HeartRateSensor(deviceID)
+        channel.on('data', onData)
+		const started = await channel.startSensor(sensor)
+        if (!started) {
+            console.log('could not start sensor')
+            ant.close();
+        }
 	} 
 	
 }
 
 function onData(profile, deviceID,data) {
-	console.log(`id: ANT+${profile} ${deviceID}, cadence: ${data.Cadence}, power: ${data.Power}`);
+	console.log(`id: ANT+${profile} ${deviceID}, heart rate: ${data.ComputedHeartRate}`);
 }
 
 async function onAppExit() {
@@ -52,4 +56,3 @@ const args = process.argv.slice(2);
 const deviceID = args.length>0 ? args[0] : undefined;
 
 main( deviceID );
-
