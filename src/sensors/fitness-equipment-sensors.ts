@@ -148,7 +148,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
     async sendUserConfiguration (userWeight, bikeWeight, wheelDiameter, gearRatio): Promise<boolean> {
 
 		var payload = [];
-		payload.push ( this.channel);
+		payload.push ( this.channel.getChannelNo());
 
 		const logStr = `setUserConfiguration(${userWeight},${bikeWeight},${wheelDiameter},${gearRatio})`
 
@@ -187,7 +187,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 
     async sendBasicResistance( resistance): Promise<boolean> {
 		var payload = [];
-		payload.push ( this.channel);
+		payload.push ( this.channel.getChannelNo());
 
 		const logStr = `setBasicResistance(${resistance})`;
 
@@ -209,7 +209,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
     
     async sendTargetPower( power): Promise<boolean> {
 		var payload = [];
-		payload.push ( this.channel);
+		payload.push ( this.channel.getChannelNo());
 
 		const logStr = `setTargetPower(${power})`;
 
@@ -231,7 +231,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 
     async sendWindResistance( windCoeff,windSpeed,draftFactor): Promise<boolean> {
 		var payload = [];
-		payload.push ( this.channel);
+		payload.push ( this.channel.getChannelNo());
 
 		const logStr = `setWindResistance(${windCoeff},${windSpeed},${draftFactor})`;
 
@@ -265,7 +265,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
     async sendTrackResistance( slope, rrCoeff?): Promise<boolean> {
 
 		var payload = [];
-		payload.push ( this.channel);
+		payload.push ( this.channel.getChannelNo());
 		
 		const logStr = `setTrackResistance(${slope},${rrCoeff})`;
 
