@@ -143,7 +143,7 @@ export class AntDevice implements IAntDevice {
 			if (this.channels[i]!==null) 
 				await this.channels[i].stopScanner()
 			if (this.channels[i]!==null) 
-				await this.channels[i].stopSensor()
+				await this.channels[i].stopAllSensors()
 			
 		}
 

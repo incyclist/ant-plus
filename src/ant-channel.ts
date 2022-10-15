@@ -10,6 +10,7 @@ export type MessageInfo = {
 }
 
 export const START_TIMEOUT = 5000;
+export const MAX_CHANNEL_COLLISION = 10;
 
 export default class Channel  extends EventEmitter implements IChannel {
 
@@ -20,6 +21,8 @@ export default class Channel  extends EventEmitter implements IChannel {
     protected isWriting: boolean = false;
     protected messageQueue: MessageInfo[] = []
     protected props: ChannelProps
+    protected attachedSensor: ISensor;
+    protected ackErrorCount: number = 0;
 
     constructor( channelNo:number, device:IAntDevice, props?:ChannelProps) {
         super()
@@ -51,7 +54,7 @@ export default class Channel  extends EventEmitter implements IChannel {
 
     async startScanner(): Promise<boolean> {
         if (this.isSensor)
-            await this.stopSensor()
+            await this.stopAllSensors()
 
         let to;
         try {
@@ -114,13 +117,52 @@ export default class Channel  extends EventEmitter implements IChannel {
 
     }
 
-    async stopSensor(): Promise<boolean> {
+    async stopAllSensors(): Promise<boolean> {
         if (!this.isSensor)
             return true;
 
         await this.closeChannel();
         this.isSensor = false;
 
+    }
+
+    async stopSensor(sensor: ISensor): Promise<boolean> {        
+        return await this.stopAllSensors()
+    }
+
+    async restartSensor(): Promise<boolean> {
+        if (!this.isSensor || !this.attachedSensor)
+            return true;
+
+        await this.closeChannel();
+        const sensor = this.attachedSensor;
+
+
+        let to;
+        try {
+            //to = setTimeout( ()=>{ throw new Error('timeout')},START_TIMEOUT)
+
+            const {type,transmissionType,timeout,frequency,period} = sensor.getChannelConfiguration();
+            const deviceID = sensor.getDeviceID();
+            const deviceType = sensor.getDeviceType();
+
+            await this.sendMessage(Messages.assignChannel(this.channelNo, type));
+            await this.sendMessage(Messages.setDevice(this.channelNo, deviceID, deviceType, transmissionType));
+            await this.sendMessage(Messages.searchChannel(this.channelNo, timeout));
+            await this.sendMessage(Messages.setFrequency(this.channelNo, frequency));
+            await this.sendMessage(Messages.setPeriod(this.channelNo, period));
+            await this.sendMessage(Messages.libConfig(this.channelNo, 0xE0));
+            await this.sendMessage(Messages.openChannel(this.channelNo));
+
+            //if (to) clearTimeout(to)
+            this.attach(sensor)
+            
+            return true	
+        }
+        catch(err) {
+            if (to) clearTimeout(to)
+            return false;
+        }
     }
 
     protected async closeChannel(): Promise<void> {
@@ -140,12 +182,14 @@ export default class Channel  extends EventEmitter implements IChannel {
     }
 
     attach(sensor:ISensor): any {
+        this.attachedSensor = sensor;
         sensor.setChannel(this)
         this.on('message', (data) => {sensor.onMessage(data)})
         this.on('status', (status,data) => {sensor.onEvent(data)})
     }
 
     detach(sensor:ISensor){
+        this.attachedSensor = null;
         sensor.setChannel(null)
         this.off('message', (data) => {sensor.onMessage(data)})
         this.off('status', (status,data) => {sensor.onEvent(data)})
@@ -178,6 +222,7 @@ export default class Channel  extends EventEmitter implements IChannel {
                     const msg = this.messageQueue[0];
                     this.messageQueue.splice(0,1)
                     this.isWriting = false
+                    this.ackErrorCount = 0;
                     msg.resolve(value)			
                 }
     
@@ -186,8 +231,15 @@ export default class Channel  extends EventEmitter implements IChannel {
                         return;
                     const msg = this.messageQueue[0]
                     this.isWriting = true;
+                    this.ackErrorCount = 0;
                     this.device.write(msg.data)
                     msg.data = undefined
+                }
+
+                const flush = () => {
+                    this.messageQueue.forEach( msg => {msg.resolve(false) })
+                    this.messageQueue = [];
+                    this.ackErrorCount = 0;
                 }
     
                 if (status.msg!==1) {	// We have a response to the previous message
@@ -221,11 +273,25 @@ export default class Channel  extends EventEmitter implements IChannel {
                             return;
                         case Constants.EVENT_RX_FAIL:
                             // TODO: announce missed message / disconnect in case of too many errors?
+                            //resolve(false)
+                            //next()
                             break;
                         case Constants.EVENT_RX_FAIL_GO_TO_SEARCH:
                             // TODO: Announce diconnect
                             break;
                         case Constants.EVENT_CHANNEL_COLLISION:
+                            if (this.isWriting) {
+                                this.ackErrorCount++;
+/*
+                                if (this.ackErrorCount>MAX_CHANNEL_COLLISION) {
+                                    flush();
+                                    this.restartSensor()
+                                    .catch( ()=>{})
+                                    .finally( ()=> {flush(); this.isWriting=false})
+
+                                }
+*/                                
+                            }
                         // TODO
                             break;
 
