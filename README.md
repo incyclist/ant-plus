@@ -9,7 +9,14 @@ Libusb is included as a submodule. On Linux, you'll need libudev to build libusb
 
 ### Windows
 
+__Using the AntDevice binding__
+
 Use [Zadig](http://sourceforge.net/projects/libwdi/files/zadig/) to install the WinUSB driver for your USB device. Otherwise you will get `LIBUSB_ERROR_NOT_SUPPORTED` when attempting to open devices.
+
+__Using the AntServerBinding binding__
+
+The `antserver.exe` needs to be deployed together with your app. You can find a pre-compiled version in the [./bin](./bin) directory, or you can compile it yourself based on the sources provided in the  [./antserver](./antserver) directory
+
 
 ## Install
 
@@ -22,7 +29,7 @@ npm install incyclist-ant-plus
 #### __Create and connect to USB Device (stick)__
 
 ```javascript
-const {AntDevice} = require('incyclist-ant-plus/lib/ant-device')
+const {AntDevice} = require('incyclist-ant-plus')
 
 const ant = new AntDevice({startupTimeout:2000})
 const success = await ant.open()
