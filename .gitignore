@@ -21,6 +21,13 @@ coverage
 
 # Compiled binary addons (http://nodejs.org/api/addons.html)
 build/Release
+antserver/Release
+antserver/Debug
+antserver/Server/Release
+antserver/Server/Debug
+antserver/ANT_LIB/Release
+antserver/ANT_LIB/Debug
+
 
 # Dependency directory
 # https://www.npmjs.org/doc/misc/npm-faq.html#should-i-check-my-node_modules-folder-into-git
@@ -39,3 +46,8 @@ typings
 
 #Snyk settings
 .snyk
+
+# VS settings
+.vs
+antserver/.vs/
+antserver/ANT_LIB/ANT_Lib.vcxproj.user

@@ -23,6 +23,7 @@ export class AntDevice implements IAntDevice {
 	private leftover: Buffer;
 
 
+	protected props: AntDeviceProps;
 	protected maxChannels: number;
 	protected canScan: boolean = false;
 	protected waitingFor: { msgId?: number,event?:number, resolve }; 
@@ -31,7 +32,6 @@ export class AntDevice implements IAntDevice {
 
 	protected static devices: { device:Device, inUse: boolean} []
 
-	props: AntDeviceProps;
 
 	constructor(props?: AntDeviceProps) {
 		this.props = props||{};

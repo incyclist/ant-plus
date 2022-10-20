@@ -1,0 +1,177 @@
+---------------------------------------------------------------------------------
+Dynastream Innovations Inc.
+Cochrane, AB, CANADA
+
+Copyright © 1998-2012 Dynastream Innovations Inc.
+All rights reserved. This software may not be reproduced by
+any means without express written approval of Dynastream
+Innovations Inc.
+---------------------------------------------------------------------------------
+
+Upgrade Notes for the ANT Managed Library 2.1
+---------------------------------------------------------------------------------
+
+If updating an application to the ANT_Managed_Library (ANT_NET.dll) version 2 or higher, 
+from version 1.*, there are a few considerations
+
+---------------------------------------------------------------------------------
+
+General ANT Applications
+
+1) The names of the delegates for the device and channel response events have been modified.
+
+Version 1.*
+device0.deviceResponse += new ANT_Device.DeviceResponseHandler(DeviceResponse);
+channel0.channelResponse += new ANT_Channel.ChannelResponseHandler(ChannelResponse);
+
+Version 2.*
+device0.deviceResponse += new ANT_Device.dDeviceResponseHandler(DeviceResponse);
+channel0.channelResponse += new dChannelResponseHandler(ChannelResponse);
+
+2) ANT_ChannelID is no longer an inner class of ANT_Response
+
+Version 1.*
+ANT_Response.ANT_ChannelID
+
+Version 2.*
+ANT_ChannelID
+
+3) Make sure to also update the ANT_Unmanaged_Wrapper (ANTWrappedLib.dll) to version 2.9.1 or higher.
+
+Please refer to the DEMO_NET project on the Windows Library Package for sample code.
+
+---------------------------------------------------------------------------------
+
+Applications using ANT-FS
+
+New features:
+- Ease of integration with existing ANT managed applications
+- Compatibility with ANT-FS Broadcast
+- Other ANT channels can be used for custom purposes.
+
+Please refer to the DEMO_ANTFS project on the Windows Library Package for sample code.
+
+1) The ANTFS_Host class has been deprecated.  This class has been replaced with 
+ANTFS_HostChannel.  The main difference between the two is that the new ANTFS_HostChannel
+does not control the connection to the USB stick, and can be more easily incorporated into 
+existing applications that are using an ANT_Device to manage the USB connection.
+This provides more flexibility, like using other channels or switching between
+broadcast mode and ANT-FS sessions.
+
+Version 1.*
+ANTFS_Host antfsHost = new ANTFS_Host();
+
+Version 2.*
+ANT_Device antDevice = new ANT_Device();
+ANTFS_HostChannel antfsHost = new ANTFS_HostChannel(antDevice.getChannel(0));
+
+Because of this, the Response.OpenPass has been removed.
+
+Similarly, the ANTFS_Client class has been deprecated in favour of ANTFS_ClientChannel.
+
+Version 1.*
+ANTFS_Client antfsClient = new ANTFS_Client();
+
+Version 2.*
+ANT_Device antDevice = new ANT_Device();
+ANTFS_ClientChannel antfsClient = new ANTFS_ClientChannel(antDevice.getChannel(0));
+
+
+2) The delegate for the ANT-FS Host response events has been modified.  
+Note that both the name of the delegate and its signature changed.
+
+Version 1.*
+antfsHost.OnResponse += new ANTFS_Host.ResponseHandler(HandleHostResponses);
+
+public void HandleHostResponses(object sender, ANTFS_EventArgs args)
+{
+   switch (args.responseCurrent)
+   {
+      case Response.ConnectPass:
+      // Handle responses...      
+   }
+}
+
+Version 2.*
+antfsHost.OnResponse += new Action<ANTFS_HostChannel.Response>(HandleHostResponses);
+
+public void HandleHostResponses(ANTFS_HostChannel.Response response)
+{
+   switch(response)
+   {
+      case ANTFS_HostChannel.Response.ConnectPass:
+      // Handle responses...
+   }
+}
+
+Similary, for the ANT-FS Client
+
+Version 1.*
+antfsClient.OnResponse += new ANTFS_Client.ResponseHandler(HandleClientResponses);
+
+public void HandleClientResponses(object sender, ANTFS_EventArgs args)
+{
+   switch (args.responseCurrent)
+   {
+      case Response.ConnectPass:
+      // Handle responses...      
+   }
+}
+
+Version 2.*
+antfsClient.OnResponse += new Action<ANTFS_ClientChannel.Response>(HandleHostResponses);
+
+public void HandleClientResponses(ANTFS_ClientChannel.Response response)
+{
+   switch(response)
+   {
+      case ANTFS_ClientChannel.Response.ConnectPass:
+      // Handle responses...
+      // Use getters to get relevant parameters
+   }
+}
+
+3) Asides from the naming convention, event arguments are no longer available in the new response
+handler.  Use the relevant getters to retrieve any parameters related to a particular event. 
+This change is in line with the functionality of the underlying C++ library.
+Please refer to DEMO_ANTFS for an example implementation.
+
+4) To enable debugging, use ANT_Common.enableDebugLogs(). Make sure to enable debugging before creating a new ANT_Device and ANTFS_HostChannel or ANTFS_ClientChannel object for full debug information.
+
+Version 1.*
+antfsHost.SetDebugLogs(true);
+antfsClient.SetDebugLogs(true);
+
+Version 2.*
+ANT_Common.enableDebugLogs();
+
+!!! NOTE:  To enable debugging in the ANT Receive thread, the ANT Managed Library must be built with the ANTFS_DEBUGGING preprocessor directive.
+The binary included in the Windows Library Package does not include this by default.
+
+5) To set the network key, you must specify both the network number and network key.  In the previous version, network 0 was always used by default.
+
+Version 1.*
+antfsHost.SetNetworkKey(networkKey);
+
+Version 2.* 
+antfsHost.SetNetworkKey(networkNumber, networkKey);
+
+Similarly, for the ANT-FS client
+
+Version 1.*
+antfsHost.SetNetworkKey(networkKey);
+
+Version 2.* 
+antfsClient.SetClientNetworkKey(networkNumber, networkKey);
+
+6) Timeouts were removed from the ANT-FS Host (i.e. Response.Timeout), as their implementation did not play well with new architecture.  Timeouts can be implemented at the application level, providing more flexibility on their intended behavior.
+
+7) ANT_Managed_Library.ANTFS.State has been replaced with ANTFS_HostChannel.State (with only the events relevant to the host) and  ANTFS_ClientChannel.State (with only the states relevant to the client).
+
+8) Removed Default.SearchRadioFrequency and Default.TransportRadioFrequency.  Replaced with more explicit RadioFrequency enum
+
+9) On the ANT-FS Host, if specifying a disconnect type when using Disconnect(), it should be a byte, instead of the enum DisconnectType.  This is to allow custom disconnect type values, as per Version 2.2. of the Spec.
+
+10) On the ANT-FS Client, removed the ReturnBroadcast response.  Instead, if the client was requested by a host to disconnect and go back to broadcast, the client will receive a DisconnectPass response and must use GetDisconnectParameters() to figure out the disconnnect type.  This is to accomodate Spec  2.2 that allows application specific disconnect types.
+If the client requested to close the beacon while specifying to return to broadcast, it will just get a BeaconClosed event.
+The ANTFSClientDemo application provides an example usage of these different modes.
