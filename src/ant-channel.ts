@@ -6,6 +6,8 @@ import { ChannelProps, IAntDevice, IChannel, ISensor } from "./types";
 export type MessageInfo = {
 	msgId: number;
 	data?: Buffer;
+    timeout?:number;
+    timeoutExpired?:number;
 	resolve
 }
 
@@ -111,6 +113,8 @@ export default class Channel  extends EventEmitter implements IChannel {
             return this.isSensor	
         }
         catch(err) {
+            console.log(err)
+            
             if (to) clearTimeout(to)
             return false;
         }
@@ -160,6 +164,7 @@ export default class Channel  extends EventEmitter implements IChannel {
             return true	
         }
         catch(err) {
+            console.log(err)
             if (to) clearTimeout(to)
             return false;
         }
@@ -202,7 +207,46 @@ export default class Channel  extends EventEmitter implements IChannel {
             const messageID = data.readUInt8(Messages.BUFFER_INDEX_MSG_TYPE);
             const channel = data.readUInt8(Messages.BUFFER_INDEX_CHANNEL_NUM);
             const prevMsgId =  this.messageQueue.length>0 ? this.messageQueue[0].msgId : undefined
-    
+            const prevTimeout = this.messageQueue.length>0 ? this.messageQueue[0].timeout : undefined
+
+            
+            const resolve = (value)  => {
+                if (this.messageQueue.length===0)
+                    return;
+                const msg = this.messageQueue[0];
+                this.messageQueue.splice(0,1)
+                this.isWriting = false
+                this.ackErrorCount = 0;
+                msg.resolve(value)			
+            }
+
+            const next = () => {
+                if (this.messageQueue.length===0)
+                    return;
+                const msg = this.messageQueue[0]
+                if (msg.timeout) {
+                    msg.timeoutExpired = Date.now()+msg.timeout;
+                    delete msg.timeout
+                }
+                this.isWriting = true;
+                this.ackErrorCount = 0;
+                this.device.write(msg.data)
+                msg.data = undefined
+            }
+
+            /*
+            const flush = () => {
+                this.messageQueue.forEach( msg => {msg.resolve(false) })
+                this.messageQueue = [];
+                this.ackErrorCount = 0;
+            }
+            */
+
+
+            if (prevTimeout) {
+                resolve(false);
+                next();                
+            }
             
     
             // TODO: check for special messages ( e.g. broadcast, acknowledge,...)
@@ -215,37 +259,12 @@ export default class Channel  extends EventEmitter implements IChannel {
                 };
     
                 this.emit('status', status, data);
-    
-                const resolve = (value)  => {
-                    if (this.messageQueue.length===0)
-                        return;
-                    const msg = this.messageQueue[0];
-                    this.messageQueue.splice(0,1)
-                    this.isWriting = false
-                    this.ackErrorCount = 0;
-                    msg.resolve(value)			
-                }
-    
-                const next = () => {
-                    if (this.messageQueue.length===0)
-                        return;
-                    const msg = this.messageQueue[0]
-                    this.isWriting = true;
-                    this.ackErrorCount = 0;
-                    this.device.write(msg.data)
-                    msg.data = undefined
-                }
 
-                const flush = () => {
-                    this.messageQueue.forEach( msg => {msg.resolve(false) })
-                    this.messageQueue = [];
-                    this.ackErrorCount = 0;
-                }
-    
                 if (status.msg!==1) {	// We have a response to the previous message
                     if (prevMsgId===status.msg)
                     {
-                        resolve(status.code)
+                        
+                        resolve(status.code===0x00 || status.code===Constants.EVENT_TRANSFER_TX_COMPLETED)
                         next()
                         return
                     }	
@@ -315,9 +334,12 @@ export default class Channel  extends EventEmitter implements IChannel {
     }
 
 
-    sendMessage(data: Buffer,logStr?:string): Promise<any> {
+    sendMessage(data: Buffer, opts?:{ timeout?:number}): Promise<any> {
+        const props=opts||{}
         const msgId = data.readUInt8(Messages.BUFFER_INDEX_MSG_TYPE)
 		const channel = data.readUInt8(Messages.BUFFER_INDEX_CHANNEL_NUM);
+        const {timeout} = props;
+        const timeoutExpired= timeout? Date.now()+timeout : undefined;
 
            
 		return new Promise( (resolve,reject) => {
@@ -335,16 +357,13 @@ export default class Channel  extends EventEmitter implements IChannel {
                             message.resolve(false)
                         }
                     } while (found!==-1)
-					this.messageQueue.push({msgId, resolve,data})
+					this.messageQueue.push({msgId, resolve,data,timeoutExpired})
 
 				}
 				else {
-					this.messageQueue.push({msgId, resolve})
+					this.messageQueue.push({msgId, resolve, timeout})
 					this.isWriting = true
-                    if (logStr) {
-
-                    }
-					this.device.write(data)
+ 					this.device.write(data)
 				}
 		})		
 

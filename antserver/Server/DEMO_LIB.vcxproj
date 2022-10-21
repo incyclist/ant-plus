@@ -14,7 +14,7 @@
     <ProjectGuid>{491FDD5B-A409-4FCD-AFCA-12E0343CC7A2}</ProjectGuid>
     <RootNamespace>Server</RootNamespace>
     <Keyword>Win32Proj</Keyword>
-    <ProjectName>ANT+Server</ProjectName>
+    <ProjectName>antserver</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">

@@ -1,8 +1,9 @@
-const {HeartRateSensor,AntServerBinding} = require('incyclist-ant-plus');
+const {HeartRateSensor} = require('incyclist-ant-plus');
+const {AntServerBinding} = require('incyclist-ant-plus/lib/bindings');
 
 
-const binaryPath = '..\\bin\\ANT+Server.exe'
-const ant = new AntServerBinding({binaryPath,startupTimeout:5000 ,debug:true, logger:console})
+const binaryPath = '..\\bin\\antserver.exe'
+const ant = new AntServerBinding({binaryPath,startupTimeout:5000 ,serverDebug:true,debug:true, logger:console})
 
 async function main( deviceID=-1) {
 

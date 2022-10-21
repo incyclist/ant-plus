@@ -56,7 +56,7 @@ channel.attach(new BicyclePowerSensor())
 channel.attach(new HeartRateSensor())
 channel.attach(new FitnessEquipmentSensor())
 
-const detected = await channel.startScan({timeout:10000})
+const detected = await channel.startScanner({timeout:10000})
 console.log(detected)
 ```
 
@@ -67,7 +67,7 @@ might be used when scan should be stopped as soon as first/specific device is de
 has to be called explicitly if scan is done without timeout
 
 ```javascript
-channel.stopScan()
+channel.stopScanner()
 ``` 
 
 

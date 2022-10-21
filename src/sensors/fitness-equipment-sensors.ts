@@ -127,7 +127,8 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 
 	// commands
 
-	async send (data: Buffer, logStr?:string):Promise<boolean> {
+	async send (data: Buffer, props:{logStr?:string, timeout?:number}):Promise<boolean> {
+		const {logStr,timeout} = props||{}
 		const channel = this.getChannel()
 		if (!channel)
 			return false;
@@ -181,7 +182,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		payload.push (gr&0xFF);                     // gear ratio 
 
 		let msg = Messages.acknowledgedData(payload);
-		return await this.send(msg,logStr)
+		return await this.send(msg,{logStr,timeout:2000})
 
     }
 
@@ -204,7 +205,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		payload.push (res&0xFF);                    // resistance 
 
 		let msg = Messages.acknowledgedData(payload);			
-		return this.send( msg, logStr)
+		return await this.send(msg,{logStr,timeout:2000})
     }
     
     async sendTargetPower( power): Promise<boolean> {
@@ -226,7 +227,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		payload.push ((p>>8)&0xFF);                 // power MSB 
 
 		let msg = Messages.acknowledgedData(payload);
-		return this.send( msg, logStr)
+		return await this.send(msg,{logStr,timeout:2000})
     }
 
     async sendWindResistance( windCoeff,windSpeed,draftFactor): Promise<boolean> {
@@ -259,7 +260,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		payload.push (df&0xFF);                     // Drafting Factor
 
 		let msg = Messages.acknowledgedData(payload);
-		return this.send( msg, logStr)
+		return await this.send(msg,{logStr,timeout:2000})
     }
 
     async sendTrackResistance( slope, rrCoeff?): Promise<boolean> {
@@ -289,7 +290,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		payload.push (rr&0xFF);                     // Drafting Factor
 
 		let msg = Messages.acknowledgedData(payload);
-		return this.send( msg, logStr)
+		return await this.send(msg,{logStr,timeout:2000})
     }
 
 }

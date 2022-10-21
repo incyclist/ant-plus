@@ -1,5 +1,5 @@
 const {FitnessEquipmentSensor} = require('incyclist-ant-plus');
-const {AntDevice} = require('incyclist-ant-plus/lib/ant-device')
+const {AntDevice} = require('incyclist-ant-plus/lib/bindings')
 
 const ant = new AntDevice({startupTimeout:2000})
 

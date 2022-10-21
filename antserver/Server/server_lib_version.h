@@ -29,7 +29,7 @@ All rights reserved.
 #endif
 #define VER_INTERNAL_NAME_STR       VER_ORIGINAL_FILENAME_STR
 
-#define VER_COPYRIGHT_STR           "Dynastream Innovations Inc. (C) 2015"
+#define VER_COPYRIGHT_STR           "Guido Doumen (C) 2022"
 
 #ifdef _DEBUG
   #define VER_VER_DEBUG             VS_FF_DEBUG

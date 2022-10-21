@@ -1,9 +1,49 @@
 const {FitnessEquipmentSensor} = require('incyclist-ant-plus');
-const {AntDevice} = require('incyclist-ant-plus/lib/ant-device')
+const {AntDevice,AntServerBinding} = require('incyclist-ant-plus/lib/bindings')
 
-const ant = new AntDevice({startupTimeout:2000})
+
+const os = require('os')
+
+const serverDebug = process.env.SERVER_DEBUG
+const debug = process.env.ANT_DEBUG
+const binaryPath = process.env.ANT_SERVER || '..\\bin\\antserver.exe'
+let ant;
+
+function initAnt() {
+	if (os.platform()==='win32') {
+		ant = new AntServerBinding({binaryPath,startupTimeout:5000 ,serverDebug,debug, logger:console})			
+	}
+	else {
+		ant = new AntDevice({startupTimeout:2000})
+	}
+	return ant;	
+}
+
+async function scan(channel, timeout) {
+	
+	return new Promise( async resolve => {
+		const sensor = new FitnessEquipmentSensor()
+		let to;
+
+		channel.attach(sensor)
+		channel.on('detected' , async (profile,deviceID)=>{
+			if (to) clearTimeout(to)
+			await channel.stopScanner()
+			resolve(Number(deviceID))
+        })
+		await channel.startScanner();
+		if (timeout) {
+			to  = setTimeout( async ()=>{
+				await channel.stopScanner()
+				resolve(-1)	
+			}, timeout)
+		}
+	})
+
+}
 
 async function main( deviceID=-1) {
+	initAnt();
 
 	const opened = await ant.open()
 	if (!opened) {
@@ -11,7 +51,7 @@ async function main( deviceID=-1) {
 		return;
 	}
 
-	const channel = await ant.getChannel();
+	let channel = await ant.getChannel();
 	if (!channel) {
 		console.log('could not open channel')
 		return onAppExit()
@@ -21,11 +61,7 @@ async function main( deviceID=-1) {
 	let id = deviceID
 	if (deviceID===-1) { // scanning for device
 		console.log('Scanning for sensor(s)')
-		const sensor = new FitnessEquipmentSensor()
-		channel.attach(sensor)
-		const detected = await channel.startScanner();
-		if (detected && detected.length>0)
-			id = detected[0]
+		id = await scan(channel,10000)
 	}
 	
 	if (id===-1) {
@@ -34,12 +70,22 @@ async function main( deviceID=-1) {
 	}
 
 	console.log(`Connecting with id=${id}`)
+	channel = await ant.getChannel();
+
 	const sensor = new FitnessEquipmentSensor(id)
 	channel.on('data', onData)
-	await channel.startSensor(sensor)
 
-	
-	simulateTraining(sensor)
+	console.log('start Sensor')
+	const started = await channel.startSensor(sensor)
+
+	if (started) {
+		console.log('sensor started')
+		simulateTraining(sensor)
+	}
+	else {
+		console.log('could not start sensor')
+
+	}
 
 	
 	
@@ -57,17 +103,18 @@ async function onAppExit() {
 
 
 async function simulateTraining(sensor) {
+	console.log(sensor)
 	console.log( "set User Weight = 78kg, Bike Weight= 10kg" );
-	await sensor.sendUserConfiguration(78,10);
-	
+	console.log(await sensor.sendUserConfiguration(78,10));
+
 	console.log( "set resistance to 20.5%" );
-	await sensor.sendBasicResistance(20.5);	
+	console.log(await sensor.sendBasicResistance(20.5));	
 	
 	console.log( "set slope to 1.1%" );
-	await sensor.sendTrackResistance	(1.1);
+	console.log(await sensor.sendTrackResistance	(1.1));
 	
 	console.log( "set wind resistance coeff 0.51 kg/m" );
-	await sensor.sendWindResistance	(0.51);
+	console.log(await sensor.sendWindResistance	(0.51));
 
 	const start = Date.now()
 	const finish = start + 10000; // 10s
@@ -80,7 +127,7 @@ async function simulateTraining(sensor) {
 		}
 		else {
 			console.log("set target power to " +targetPower + "W")
-			await sensor.sendTargetPower(targetPower);
+			console.log(await sensor.sendTargetPower(targetPower));
 			targetPower+=10;
 		}
 

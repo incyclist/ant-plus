@@ -142,9 +142,6 @@ BOOL DSIFramerANT::WriteMessage(void *pvData_, USHORT usMessageSize_)
 
    if (usMessageSize_ > MESG_MAX_SIZE_VALUE)
    {
-      #if defined(DEBUG_FILE)
-         DSIDebug::ThreadWrite("Framer->WriteMessage(): Failed, Msg Size > MESG_MAX_SIZE_VALUE.");
-      #endif
       return FALSE;
    }
 
@@ -163,19 +160,9 @@ BOOL DSIFramerANT::WriteMessage(void *pvData_, USHORT usMessageSize_)
 
    if (pclSerial->WriteBytes(aucTxFifo, ucTotalSize))
    {
-      #if defined(SERIAL_DEBUG)
-         if (aucTxFifo[MESG_ID_OFFSET] == 0x46)
-            memset(&aucTxFifo[MESG_DATA_OFFSET+1],0x00,8);
-         DSIDebug::SerialWrite(pclSerial->GetDeviceNumber(), "Tx", aucTxFifo, ucTotalSize);
-      #endif
       return TRUE;
    }
 
-   #if defined(SERIAL_DEBUG)
-      if (aucTxFifo[MESG_ID_OFFSET] == 0x46)
-         memset(&aucTxFifo[MESG_DATA_OFFSET+1],0x00,8);
-      DSIDebug::SerialWrite(pclSerial->GetDeviceNumber(), "***Tx Error***", aucTxFifo, ucTotalSize);
-   #endif
 
    return FALSE;
 }

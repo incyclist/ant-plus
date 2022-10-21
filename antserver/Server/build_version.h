@@ -13,6 +13,6 @@ All rights reserved.
 #define VERSION_MINOR               8
 #define VERSION_MICRO               0
 #define VERSION_STEPS               0
-#define PRODUCT_STRING              "Demo Lib"
+#define PRODUCT_STRING              "Ant+Server"
 
 #endif //ifndef _BUILD_VERSION_H_

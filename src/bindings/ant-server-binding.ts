@@ -56,23 +56,20 @@ export default class AntServerBinding extends AntDevice implements IAntDevice{
    
             let error;
             try {
+
                 this.server = spawn(path,[])
+                if (!this.server) {
+                    this.logEvent({message:'ANT+ Server could not be started'})
+                    return resolve(false)
+                }
+
                 this.server.once('error', (err)=>{                    
                     this.logEvent({message:'ANT+ Server could not be started',error:err.message})
                     return resolve(false);
                 } )
                 this.server.on('spawn',()=>{
-                    this.logEvent({message:'ANT+ Server started'})
-                    this.server.on('close',this.onServerStopped.bind(this))
-                    this.server.on('error',this.onServerError.bind(this))
-
-                    this.server.stdout.on('error',console.log)
-                    this.server.stdin.on('error',console.log)                    
-                    this.server.stdout.pipe(new PassThrough()) //.pipe(split())
-                    //.on( 'data', this.onServerMessage.bind(this))
-                    .on( 'data',this.onServerData.bind(this))
-                    return resolve(true)
-        
+                    this.logEvent({message:'ANT+ Server spawned'})
+                    this.server.on('error',this.onServerError.bind(this))        
                 })
             }
             catch(err) {
@@ -83,6 +80,17 @@ export default class AntServerBinding extends AntDevice implements IAntDevice{
                 this.logEvent({message:'ANT+ Server could not be started',error})
                 return resolve(false);
             }
+
+            this.server.on('close',this.onServerStopped.bind(this))
+
+            this.server.stdout.on('error',console.log)
+            this.server.stdin.on('error',console.log)                    
+            this.server.stdout.pipe(new PassThrough()) //.pipe(split())
+            //.on( 'data', this.onServerMessage.bind(this))
+            .on( 'data',this.onServerData.bind(this))
+            return resolve(true)
+
+
             
     /*
             const rl = readline.createInterface({
@@ -135,8 +143,8 @@ export default class AntServerBinding extends AntDevice implements IAntDevice{
     
 
     onServerMessage(str:string) {
-        if (this.props.serverDebug)
-            this.logEvent({message: 'Ant+ Server [IN]:', msg:str});
+        if (this.props.serverDebug && !str.startsWith('debug/ping'))
+            this.logEvent({message: 'Ant+ Server [IN]:', msg:str });
 
 
         const parts = str.split('/')
@@ -180,8 +188,8 @@ export default class AntServerBinding extends AntDevice implements IAntDevice{
         try {
             
             const output = `ping/${Date.now()}`
-            if (this.props.serverDebug)
-                this.logEvent({message: 'Ant+ Server [OUT]:', msg:output });
+            //if (this.props.serverDebug)
+            //    this.logEvent({message: 'Ant+ Server [OUT]:', msg:output });
             this.server.stdin.write( `${output}\n`)        
             return true;
         }
@@ -218,7 +226,8 @@ export default class AntServerBinding extends AntDevice implements IAntDevice{
 
 
     async open(): Promise<boolean> {
-        this.startServer();  
+        console.log('######### ANT+OPEN')
+        await this.startServer();  
         
         if (this.server) {
 

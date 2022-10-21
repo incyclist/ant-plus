@@ -191,7 +191,7 @@ void Server::WaitForInput() {
 					char buffer[MESG_BUFFER_SIZE];
 					readHex(&buffer[0], data.c_str());
 
-					pclMessageObject->WriteMessage(buffer, len / 2);
+					pclMessageObject->WriteMessage(buffer, len / 2-2);
 				}
 			}
 
