@@ -7,6 +7,9 @@ import { ChannelConfiguration, ISensor } from '../types';
 import { Constants } from '../consts';
 import { Messages } from '../messages';
 import Sensor from './base-sensor';
+import Channel from '../ant-channel';
+
+const SEND_TIMEOUT = 5000;
 
 export class FitnessEquipmentSensorState {
 	constructor(deviceID: number) {
@@ -66,6 +69,7 @@ const PERIOD		= 8192
 export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 
 	private states: { [id: number]: FitnessEquipmentSensorState } = {};
+	private isRestarting: boolean;
 
 	getDeviceType(): number {
 		return DEVICE_TYPE
@@ -121,7 +125,50 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 
 	}
 
-	onEvent(data: Buffer) {
+	logEvent(event) {
+		const channel = this.getChannel()
+		if  (channel && channel.getProps().logger && channel.getProps().logger.logEvent!==undefined) {
+			try { channel.getProps().logger.logEvent(event) } catch{}
+		} 
+	}
+
+	protected async waitForRestart(): Promise<void> {
+		
+		return new Promise( done=> {
+			if (!this.isRestarting)	
+				return done()
+			const iv = setInterval( ()=>{
+				if (!this.isRestarting)	 {
+					clearInterval(iv)
+					done()
+				}
+			}, 100)
+		})
+
+	}
+
+	async onEvent(data: Buffer) {
+		const msg = data.readUInt8(4);
+		const code = data.readUInt8(5);
+		const event = {
+			msg: msg.toString(16),
+			code: code.toString(16),
+		};
+		if(event.msg==='1' && code in [0,3,4,5,6])
+			return;
+
+		this.logEvent( {message:'channel event',event})		
+
+		if (code===Constants.TRANSFER_IN_PROGRESS) {
+			const channel = this.getChannel() as Channel;
+			
+			this.logEvent( {message:'restart channel',event})		
+			this.isRestarting = true
+			await channel.restartSensor()
+			this.isRestarting = false
+			this.logEvent( {message:'restart channel done',event})		
+		}
+		
 		return;
 	}
 
@@ -139,8 +186,10 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 
 		//console.log(logStr,logEvent)
 
-		logEvent ( {message:'sending', command:logStr})		
-		const res = await channel.sendMessage(data)
+		if (this.isRestarting) 
+			await this.waitForRestart()
+		logEvent ( {message:'sending', command:logStr,timeout})		
+		const res = await channel.sendMessage(data,{timeout})
 		logEvent( {message:'response', command:logStr, response:res})
 		return res;		
 
@@ -182,7 +231,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		payload.push (gr&0xFF);                     // gear ratio 
 
 		let msg = Messages.acknowledgedData(payload);
-		return await this.send(msg,{logStr,timeout:2000})
+		return await this.send(msg,{logStr,timeout:SEND_TIMEOUT})
 
     }
 
@@ -205,7 +254,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		payload.push (res&0xFF);                    // resistance 
 
 		let msg = Messages.acknowledgedData(payload);			
-		return await this.send(msg,{logStr,timeout:2000})
+		return await this.send(msg,{logStr,timeout:SEND_TIMEOUT})
     }
     
     async sendTargetPower( power): Promise<boolean> {
@@ -227,7 +276,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		payload.push ((p>>8)&0xFF);                 // power MSB 
 
 		let msg = Messages.acknowledgedData(payload);
-		return await this.send(msg,{logStr,timeout:2000})
+		return await this.send(msg,{logStr,timeout:SEND_TIMEOUT})
     }
 
     async sendWindResistance( windCoeff,windSpeed,draftFactor): Promise<boolean> {
@@ -260,7 +309,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		payload.push (df&0xFF);                     // Drafting Factor
 
 		let msg = Messages.acknowledgedData(payload);
-		return await this.send(msg,{logStr,timeout:2000})
+		return await this.send(msg,{logStr,timeout:SEND_TIMEOUT})
     }
 
     async sendTrackResistance( slope, rrCoeff?): Promise<boolean> {
@@ -290,7 +339,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		payload.push (rr&0xFF);                     // Drafting Factor
 
 		let msg = Messages.acknowledgedData(payload);
-		return await this.send(msg,{logStr,timeout:2000})
+		return await this.send(msg,{logStr,timeout:SEND_TIMEOUT})
     }
 
 }

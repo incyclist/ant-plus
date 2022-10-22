@@ -7,7 +7,6 @@ export type MessageInfo = {
 	msgId: number;
 	data?: Buffer;
     timeout?:number;
-    timeoutExpired?:number;
 	resolve
 }
 
@@ -138,13 +137,17 @@ export default class Channel  extends EventEmitter implements IChannel {
         if (!this.isSensor || !this.attachedSensor)
             return true;
 
-        await this.closeChannel();
+        this.messageQueue.forEach( msg => {msg.resolve(false) })
+        this.messageQueue = [];
+        this.isWriting = false;
+
+        await this.closeChannel({restart:true});
         const sensor = this.attachedSensor;
 
 
         let to;
         try {
-            //to = setTimeout( ()=>{ throw new Error('timeout')},START_TIMEOUT)
+            to = setTimeout( ()=>{ throw new Error('timeout')},START_TIMEOUT)
 
             const {type,transmissionType,timeout,frequency,period} = sensor.getChannelConfiguration();
             const deviceID = sensor.getDeviceID();
@@ -158,7 +161,7 @@ export default class Channel  extends EventEmitter implements IChannel {
             await this.sendMessage(Messages.libConfig(this.channelNo, 0xE0));
             await this.sendMessage(Messages.openChannel(this.channelNo));
 
-            //if (to) clearTimeout(to)
+            if (to) clearTimeout(to)
             this.attach(sensor)
             
             return true	
@@ -170,12 +173,15 @@ export default class Channel  extends EventEmitter implements IChannel {
         }
     }
 
-    protected async closeChannel(): Promise<void> {
+    protected async closeChannel(props:{restart?:boolean}={}): Promise<void> {
+        const {restart} = props||{}
+
         return new Promise ( resolve => {
             const onStatusUpdate = async (status)=> {
                 if (status.msg===1 && status.code===Constants.EVENT_CHANNEL_CLOSED ) {
                     await this.sendMessage(Messages.unassignChannel(this.channelNo));
-                    this.device.freeChannel(this)
+                    if (!restart)
+                        this.device.freeChannel(this)
                     this.off('status', onStatusUpdate)                    
                     resolve()    
                 }
@@ -207,9 +213,8 @@ export default class Channel  extends EventEmitter implements IChannel {
             const messageID = data.readUInt8(Messages.BUFFER_INDEX_MSG_TYPE);
             const channel = data.readUInt8(Messages.BUFFER_INDEX_CHANNEL_NUM);
             const prevMsgId =  this.messageQueue.length>0 ? this.messageQueue[0].msgId : undefined
-            const prevTimeout = this.messageQueue.length>0 ? this.messageQueue[0].timeout : undefined
 
-            
+            // send response of message
             const resolve = (value)  => {
                 if (this.messageQueue.length===0)
                     return;
@@ -220,34 +225,23 @@ export default class Channel  extends EventEmitter implements IChannel {
                 msg.resolve(value)			
             }
 
+            // process next message from queue
             const next = () => {
                 if (this.messageQueue.length===0)
                     return;
                 const msg = this.messageQueue[0]
                 if (msg.timeout) {
-                    msg.timeoutExpired = Date.now()+msg.timeout;
-                    delete msg.timeout
+                    setTimeout( ()=>{ 
+                        resolve(false);
+                        next();
+                    }, msg.timeout) 
                 }
                 this.isWriting = true;
                 this.ackErrorCount = 0;
                 this.device.write(msg.data)
                 msg.data = undefined
             }
-
-            /*
-            const flush = () => {
-                this.messageQueue.forEach( msg => {msg.resolve(false) })
-                this.messageQueue = [];
-                this.ackErrorCount = 0;
-            }
-            */
-
-
-            if (prevTimeout) {
-                resolve(false);
-                next();                
-            }
-            
+          
     
             // TODO: check for special messages ( e.g. broadcast, acknowledge,...)
             // TODO: check for status responses for those messages
@@ -263,8 +257,8 @@ export default class Channel  extends EventEmitter implements IChannel {
                 if (status.msg!==1) {	// We have a response to the previous message
                     if (prevMsgId===status.msg)
                     {
-                        
-                        resolve(status.code===0x00 || status.code===Constants.EVENT_TRANSFER_TX_COMPLETED)
+                        const success = status.code===0x00 || status.code===Constants.EVENT_TRANSFER_TX_COMPLETED
+                        resolve(success)
                         next()
                         return
                     }	
@@ -339,12 +333,18 @@ export default class Channel  extends EventEmitter implements IChannel {
         const msgId = data.readUInt8(Messages.BUFFER_INDEX_MSG_TYPE)
 		const channel = data.readUInt8(Messages.BUFFER_INDEX_CHANNEL_NUM);
         const {timeout} = props;
-        const timeoutExpired= timeout? Date.now()+timeout : undefined;
 
-           
 		return new Promise( (resolve,reject) => {
             if (channel!==this.channelNo)
                 reject( new Error('invalid channel'))
+
+                let to;
+                const done = (res) => {
+                    resolve(res)
+                    clearTimeout(to)
+                    this.isWriting = false;
+                    to = undefined
+                }
 
 				if (this.isWriting) { 
                     // is there already an unsent message with same id? if so: skip and replace
@@ -357,13 +357,20 @@ export default class Channel  extends EventEmitter implements IChannel {
                             message.resolve(false)
                         }
                     } while (found!==-1)
-					this.messageQueue.push({msgId, resolve,data,timeoutExpired})
+					this.messageQueue.push({msgId, resolve:done,data,timeout})
 
 				}
 				else {
-					this.messageQueue.push({msgId, resolve, timeout})
+					this.messageQueue.push({msgId, resolve:done})
 					this.isWriting = true
  					this.device.write(data)
+
+                    if (timeout && !to)
+                        to = setTimeout( ()=>{ 
+                            this.messageQueue.splice(0,1)
+                            done(false)
+                        }, timeout)
+
 				}
 		})		
 
