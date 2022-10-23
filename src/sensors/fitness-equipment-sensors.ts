@@ -190,6 +190,9 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 			await this.waitForRestart()
 		logEvent ( {message:'sending', command:logStr,timeout})		
 		const res = await channel.sendMessage(data,{timeout})
+		if (this.isRestarting) 
+			await this.waitForRestart()
+
 		logEvent( {message:'response', command:logStr, response:res})
 		return res;		
 

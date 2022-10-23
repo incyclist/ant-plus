@@ -50,16 +50,16 @@ async function main( deviceID=-1) {
 		console.log('could not open Ant Stick')
 		return;
 	}
-
-	let channel = await ant.getChannel();
-	if (!channel) {
-		console.log('could not open channel')
-		return onAppExit()
-	}
-
-
+	let channel;
+	
 	let id = deviceID
 	if (deviceID===-1) { // scanning for device
+		channel = await ant.getChannel();
+		if (!channel) {
+			console.log('could not open channel')
+			return onAppExit()
+		}
+	
 		console.log('Scanning for sensor(s)')
 		id = await scan(channel,10000)
 	}

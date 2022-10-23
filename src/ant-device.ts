@@ -344,6 +344,12 @@ export class AntDevice implements IAntDevice {
 			this.logEvent({message:'ANT+ RECV', data:data.toString('hex')});
 		}
 
+		if (data.length<5 || data.readUInt8(0)!==Constants.MESSAGE_TX_SYNC) {
+			this.logEvent({message:'ANT+ RECV ERROR', data:data.toString('hex'), error:'Illegal Message'});
+			return;
+		}
+		
+
 		// check for AntDevice initiated messages
 		const messageID = data.readUInt8(2);
 		if (this.waitingFor!==undefined && this.waitingFor.msgId) {

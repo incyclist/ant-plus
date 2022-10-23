@@ -44,6 +44,10 @@ export default class AntServerBinding extends AntDevice implements IAntDevice{
         return [];
     }
     
+    protected launchServer(path):ChildProcess {
+        return spawn(path,[])
+    }
+
     async startServer():Promise<boolean> {
 
         if (this.server)
@@ -56,8 +60,8 @@ export default class AntServerBinding extends AntDevice implements IAntDevice{
    
             let error;
             try {
+                this.server = this.launchServer(path)
 
-                this.server = spawn(path,[])
                 if (!this.server) {
                     this.logEvent({message:'ANT+ Server could not be started'})
                     return resolve(false)
@@ -89,17 +93,6 @@ export default class AntServerBinding extends AntDevice implements IAntDevice{
             //.on( 'data', this.onServerMessage.bind(this))
             .on( 'data',this.onServerData.bind(this))
             return resolve(true)
-
-
-            
-    /*
-            const rl = readline.createInterface({
-                input: this.server.stdout
-            });
-            
-            rl.on('line',this.onServerMessage.bind(this))
-    */
-            return this.server!==undefined
     
         })
     }
@@ -143,28 +136,34 @@ export default class AntServerBinding extends AntDevice implements IAntDevice{
     
 
     onServerMessage(str:string) {
-        if (this.props.serverDebug && !str.startsWith('debug/ping'))
-            this.logEvent({message: 'Ant+ Server [IN]:', msg:str });
+        try {
+            if (this.props.serverDebug && !str.startsWith('debug/ping'))
+                this.logEvent({message: 'Ant+ Server [IN]:', msg:str });
 
 
-        const parts = str.split('/')
-        if (parts[0]==='response') {
-            const requestId = parts[1]
-            const request = this.requests[requestId];
-            if (request) {
-                parts.splice(0,2)
-                request.resolve(...parts)
+            const parts = str.split('/')
+            if (parts[0]==='response') {
+                const requestId = parts[1]
+                const request = this.requests[requestId];
+                if (request) {
+                    parts.splice(0,2)
+                    request.resolve(...parts)
+                }
             }
-        }
-        else if (parts[0]==='message') {
-            const data = Buffer.from(parts[1],'hex')
-            this.onMessage(data)
-        }
-        else if (parts[0]==='error') { 
+            else if (parts[0]==='message') {
+                const data = Buffer.from(parts[1],'hex')
+                this.onMessage(data)
+            }
+            else if (parts[0]==='error') { 
+
+            }
+            else if (parts[0]==='debug') { 
+
+            }
 
         }
-        else if (parts[0]==='debug') { 
-
+        catch(err) {
+            this.logEvent( {message:'error',fn:'onServerMessage()', error:err.message||err, stack:err.stack})
         }
     } 
 
@@ -226,7 +225,6 @@ export default class AntServerBinding extends AntDevice implements IAntDevice{
 
 
     async open(): Promise<boolean> {
-        console.log('######### ANT+OPEN')
         await this.startServer();  
         
         if (this.server) {
