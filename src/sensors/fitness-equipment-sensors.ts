@@ -9,7 +9,7 @@ import { Messages } from '../messages';
 import Sensor from './base-sensor';
 import Channel from '../ant-channel';
 
-const SEND_TIMEOUT = 5000;
+const SEND_TIMEOUT = 10000;
 
 export class FitnessEquipmentSensorState {
 	constructor(deviceID: number) {
@@ -188,12 +188,13 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 
 		if (this.isRestarting) 
 			await this.waitForRestart()
+		const tsStart = Date.now()
 		logEvent ( {message:'sending', command:logStr,timeout})		
 		const res = await channel.sendMessage(data,{timeout})
 		if (this.isRestarting) 
 			await this.waitForRestart()
 
-		logEvent( {message:'response', command:logStr, response:res})
+		logEvent( {message:'response', command:logStr, response:res, duration: Date.now()-tsStart})
 		return res;		
 
 	}
