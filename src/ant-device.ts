@@ -240,7 +240,8 @@ export class AntDevice implements IAntDevice {
 	}
 
 	async startup(timeout?:number): Promise<boolean> {
-		
+		const sleep = (ms) => { return new Promise(resolve => setTimeout(resolve, ms))}
+
 		return new Promise( async resolve => {
 			let to: NodeJS.Timeout = undefined;
 
@@ -251,6 +252,7 @@ export class AntDevice implements IAntDevice {
 			}
 
 			await this.sendMessage(Messages.resetSystem(), {msgId:Constants.MESSAGE_STARTUP});
+			await sleep(1000);
 			const data = await this.sendMessage(Messages.requestMessage(0, Constants.MESSAGE_CAPABILITIES), {msgId:Constants.MESSAGE_CAPABILITIES});
 			this.maxChannels = data.readUInt8(3);
 			this.canScan = (data.readUInt8(7) & 0x06) === 0x06;
@@ -344,11 +346,17 @@ export class AntDevice implements IAntDevice {
 			this.logEvent({message:'ANT+ RECV', data:data.toString('hex')});
 		}
 
-		if (data.length<5 || data.readUInt8(0)!==Constants.MESSAGE_TX_SYNC) {
-			this.logEvent({message:'ANT+ RECV ERROR', data:data.toString('hex'), error:'Illegal Message'});
+		if (data.length<4 || data.readUInt8(0)!==Constants.MESSAGE_TX_SYNC) {
+			this.logEvent({message:'ANT+ RECV ERROR', data:data.toString('hex'), error:'Illegal message'});
 			return;
 		}
-		
+
+		const msgLength = data.readUInt8(1);
+		if (data.length<msgLength+3) {
+			this.logEvent({message:'ANT+ RECV ERROR', data:data.toString('hex'), error:'Illegal message'});
+			return;
+		}
+	
 
 		// check for AntDevice initiated messages
 		const messageID = data.readUInt8(2);
