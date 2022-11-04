@@ -320,6 +320,9 @@ export class AntDevice implements IAntDevice {
 
 	
 	write(data: Buffer):void {
+		if (!data)
+			return;
+			
 		if (this.props.debug) {
 			const logger = this.props.logger || console;
 			this.logEvent({message:'ANT+ SEND', data:data.toString('hex')});
