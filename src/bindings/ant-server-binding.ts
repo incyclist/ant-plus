@@ -1,6 +1,5 @@
 import { ChildProcess, spawn } from "child_process";
-import {IAntDevice } from "incyclist-ant-plus";
-import { AntDeviceProps } from "incyclist-ant-plus/lib/types";
+import {IAntDevice,AntDeviceProps } from "../types";
 import stream, { PassThrough } from 'stream'
 import { AntDevice } from "../ant-device";
 
