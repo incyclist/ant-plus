@@ -29,7 +29,7 @@ npm install incyclist-ant-plus
 #### __Create and connect to USB Device (stick)__
 
 ```javascript
-const {AntDevice} = require('incyclist-ant-plus')
+const {AntDevice} = require('incyclist-ant-plus/lib/bindings')
 
 const ant = new AntDevice({startupTimeout:2000})
 const success = await ant.open()
