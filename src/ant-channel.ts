@@ -367,13 +367,25 @@ export default class Channel  extends EventEmitter implements IChannel {
 
                     if (timeout && !to)
                         to = setTimeout( ()=>{ 
-                            this.messageQueue.splice(0,1)
-                            done(false)
+
+                            this.emit('timeout',data ) 
+                            /*  
+                                unblocking the queue and sending the next command would lead to channel collisions
+                                The consuming app needs to handle the timeout - most likely by reconnecting                              
+                            */
                         }, timeout)
 
 				}
 		})		
 
     }
+
+
+    flush() {       
+        this.messageQueue = [];       
+        this.isWriting = false;
+    }
+
+    
 
 }

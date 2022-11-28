@@ -3,20 +3,34 @@ const {AntDevice} = require('incyclist-ant-plus/lib/bindings')
 
 const ant = new AntDevice({startupTimeout:2000 /*,debug:true, logger:console*/})
 
+const sleep = async (ms) => new Promise( resolve=>  setTimeout(resolve,ms))
+
+let opened = false
+
 async function main( deviceID=-1) {
 
-	const opened = await ant.open()
-	if (!opened) {
-		console.log('could not open Ant Stick')
-		return;
-	}
+	do {
+		opened = await ant.open()
+		if (!opened) {
+			console.log('could not open Ant Stick')
+			await sleep(5000)
+			//return;
+		}
+		else {
+			console.log('device opened')
+		}
 
-	const channel = await ant.getChannel();
-	if (!channel) {
-		console.log('could not open channel')
-		return;
+		
+			
 	}
+	while (!opened)
 
+		const channel = await ant.getChannel();
+		if (!channel) {
+			console.log('could not open channel')
+			return;
+		}
+	
 
 	if (deviceID===-1) { // scanning for device
 		console.log('Scanning for sensor(s)')
@@ -43,8 +57,10 @@ function onData(profile, deviceID,data) {
 }
 
 async function onAppExit() {
-	await ant.close();
-	return 0;
+	if (opened)
+		await ant.close();
+	
+	process.exit();
 }
 
 process.on('SIGINT',  async () => await onAppExit() );  // CTRL+C

@@ -81,6 +81,9 @@ export class AntDevice implements IAntDevice {
 				})
 		
 				AntDevice.devices =  available.map( device => ({device,inUse:false}))
+				if (AntDevice.devices.length == 0) {
+					AntDevice.devices = undefined
+				}
 				
 			}
 			catch {}
@@ -91,8 +94,8 @@ export class AntDevice implements IAntDevice {
 
 	async open(): Promise<boolean> {
 		const available = this.getDevices();
-		
-		if (!available || available.length===0)
+
+		if (!available || available.length===0) 
 			return false;
 		
 		let found = -1;
@@ -155,6 +158,8 @@ export class AntDevice implements IAntDevice {
 		this.maxChannels = undefined;
 		// TODO: cleanup channels
 		this.channels = [];
+
+		AntDevice.devices = undefined;
 		return true;
 	}
 	
@@ -236,6 +241,19 @@ export class AntDevice implements IAntDevice {
 		this.inEp.startPoll();
 
 		this.outEp = this.iface.endpoints[1] as OutEndpoint;
+		this.outEp.on('error', (err: any) => {
+			if (this.props.debug) {
+				const logger = this.props.logger || console;
+				logger.log('ERROR OUTP: ', err);
+			}
+		});
+
+		if (this.iface.endpoints.length>2) {
+			this.iface.endpoints.forEach( ep => ep.on('error',()=>{
+				//
+			}))
+		}
+
 		return true
 	}
 

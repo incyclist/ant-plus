@@ -1,11 +1,12 @@
 import { ChildProcess, spawn } from "child_process";
 import {IAntDevice,AntDeviceProps } from "../types";
-import stream, { PassThrough } from 'stream'
+import { PassThrough } from 'stream'
 import { AntDevice } from "../ant-device";
 
 //import split from 'split'
 
 const DEFAULT_BINARY_PATH = 'antserver.exe'
+const MAX_PING_TIMEOUT = 3000;
 
 export interface AntServerDeviceProps extends AntDeviceProps  {
     binaryPath?: string
@@ -30,6 +31,7 @@ export default class AntServerBinding extends AntDevice implements IAntDevice{
     protected requests: Requests 
     protected serverData: string;
     protected pingIv: NodeJS.Timeout
+    protected lastPingTS: number
 
     constructor( props:AntServerDeviceProps) {
         super(props)
@@ -86,8 +88,8 @@ export default class AntServerBinding extends AntDevice implements IAntDevice{
 
             this.server.on('close',this.onServerStopped.bind(this))
 
-            this.server.stdout.on('error',console.log)
-            this.server.stdin.on('error',console.log)                    
+            this.server.stdout.on('error',(err)=> {this.logEvent({message:'ANT+ output error',error:err.message})})
+            this.server.stdin.on('error',(err)=> {this.logEvent({message:'ANT+ input error',error:err.message})})                    
             this.server.stdout.pipe(new PassThrough()) //.pipe(split())
             //.on( 'data', this.onServerMessage.bind(this))
             .on( 'data',this.onServerData.bind(this))
@@ -154,9 +156,13 @@ export default class AntServerBinding extends AntDevice implements IAntDevice{
                 this.onMessage(data)
             }
             else if (parts[0]==='error') { 
+                const message = parts[2]
+                this.logEvent( {message:'ANT+Server error',error:message})
 
             }
             else if (parts[0]==='debug') { 
+                if (parts[2]==='ping')
+                    this.lastPingTS = Date.now()
 
             }
 
@@ -184,7 +190,16 @@ export default class AntServerBinding extends AntDevice implements IAntDevice{
     sendServerPing( ): boolean {
         
         try {
-            
+ 
+            if (this.lastPingTS!==undefined)   {
+                const ts = Date.now()-this.lastPingTS;
+                if (ts>MAX_PING_TIMEOUT) {
+                    this.logEvent( {message:'ping timeout'})
+                    this.lastPingTS = undefined;
+                }
+
+            }
+
             const output = `ping/${Date.now()}`
             //if (this.props.serverDebug)
             //    this.logEvent({message: 'Ant+ Server [OUT]:', msg:output });

@@ -9,8 +9,6 @@ import { Messages } from '../messages';
 import Sensor from './base-sensor';
 import Channel from '../ant-channel';
 
-const SEND_TIMEOUT = 10000;
-
 export class FitnessEquipmentSensorState {
 	constructor(deviceID: number) {
 		this.DeviceID = deviceID;
@@ -189,7 +187,8 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		if (this.isRestarting) 
 			await this.waitForRestart()
 		const tsStart = Date.now()
-		logEvent ( {message:'sending', command:logStr,timeout})		
+		logEvent ( {message:'sending', command:logStr,timeout})	
+
 		const res = await channel.sendMessage(data,{timeout})
 		if (this.isRestarting) 
 			await this.waitForRestart()
@@ -235,7 +234,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		payload.push (gr&0xFF);                     // gear ratio 
 
 		let msg = Messages.acknowledgedData(payload);
-		return await this.send(msg,{logStr,timeout:SEND_TIMEOUT})
+		return await this.send(msg,{logStr,timeout:this.sendTimeout})
 
     }
 
@@ -258,7 +257,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		payload.push (res&0xFF);                    // resistance 
 
 		let msg = Messages.acknowledgedData(payload);			
-		return await this.send(msg,{logStr,timeout:SEND_TIMEOUT})
+		return await this.send(msg,{logStr,timeout:this.sendTimeout})
     }
     
     async sendTargetPower( power): Promise<boolean> {
@@ -280,7 +279,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		payload.push ((p>>8)&0xFF);                 // power MSB 
 
 		let msg = Messages.acknowledgedData(payload);
-		return await this.send(msg,{logStr,timeout:SEND_TIMEOUT})
+		return await this.send(msg,{logStr,timeout:this.sendTimeout})
     }
 
     async sendWindResistance( windCoeff,windSpeed,draftFactor): Promise<boolean> {
@@ -313,7 +312,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		payload.push (df&0xFF);                     // Drafting Factor
 
 		let msg = Messages.acknowledgedData(payload);
-		return await this.send(msg,{logStr,timeout:SEND_TIMEOUT})
+		return await this.send(msg,{logStr,timeout:this.sendTimeout})
     }
 
     async sendTrackResistance( slope, rrCoeff?): Promise<boolean> {
@@ -343,7 +342,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		payload.push (rr&0xFF);                     // Drafting Factor
 
 		let msg = Messages.acknowledgedData(payload);
-		return await this.send(msg,{logStr,timeout:SEND_TIMEOUT})
+		return await this.send(msg,{logStr,timeout:this.sendTimeout})
     }
 
 }
