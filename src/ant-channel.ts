@@ -7,7 +7,8 @@ export type MessageInfo = {
 	msgId: number;
 	data?: Buffer;
     timeout?:number;
-	resolve
+	resolve,
+    reject
 }
 
 export const START_TIMEOUT = 5000;
@@ -342,8 +343,16 @@ export default class Channel  extends EventEmitter implements IChannel {
                 const done = (res) => {
                     resolve(res)
                     clearTimeout(to)
+                    to = undefined
                     this.isWriting = false;
                     to = undefined
+                }
+
+                const error = (err) => {
+                    reject(err)
+                    clearTimeout(to)
+                    to = undefined
+                    this.isWriting = false;
                 }
 
 				if (this.isWriting) { 
@@ -357,18 +366,18 @@ export default class Channel  extends EventEmitter implements IChannel {
                             message.resolve(false)
                         }
                     } while (found!==-1)
-					this.messageQueue.push({msgId, resolve:done,data,timeout})
+					this.messageQueue.push({msgId, resolve:done,reject:error, data,timeout})
 
 				}
 				else {
-					this.messageQueue.push({msgId, resolve:done})
+					this.messageQueue.push({msgId, resolve:done, reject:error})
 					this.isWriting = true
  					this.device.write(data)
 
                     if (timeout && !to)
                         to = setTimeout( ()=>{ 
 
-                            this.emit('timeout',data ) 
+                            error( new Error('timeout'))
                             /*  
                                 unblocking the queue and sending the next command would lead to channel collisions
                                 The consuming app needs to handle the timeout - most likely by reconnecting                              
