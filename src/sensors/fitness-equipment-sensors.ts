@@ -156,18 +156,6 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 			return;
 
 		this.logEvent( {message:'channel event', channelNo:this.channel.getChannelNo() , deviceID:this.getDeviceID(), event})		
-
-		/*
-		if (code===Constants.TRANSFER_IN_PROGRESS) {
-			const channel = this.getChannel() as Channel;
-			
-			this.logEvent( {message:'restart channel'})		
-			this.isRestarting = true
-			const success = await channel.restartSensor()
-			this.isRestarting = false
-			this.logEvent( {message:'restart channel done',success})		
-		}
-		*/
 		
 		return;
 	}
