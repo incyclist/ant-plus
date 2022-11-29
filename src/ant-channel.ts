@@ -138,9 +138,7 @@ export default class Channel  extends EventEmitter implements IChannel {
         if (!this.isSensor || !this.attachedSensor)
             return true;
 
-        this.messageQueue.forEach( msg => {msg.resolve(false) })
-        this.messageQueue = [];
-        this.isWriting = false;
+        this.flush()
 
         await this.closeChannel({restart:true});
         const sensor = this.attachedSensor;
@@ -391,7 +389,8 @@ export default class Channel  extends EventEmitter implements IChannel {
 
 
     flush() {       
-        this.messageQueue = [];       
+        this.messageQueue.forEach( msg => {msg.resolve(false) })
+        this.messageQueue = [];
         this.isWriting = false;
     }
 
