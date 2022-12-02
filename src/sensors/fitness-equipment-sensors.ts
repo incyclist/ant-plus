@@ -7,7 +7,6 @@ import { ChannelConfiguration, ISensor } from '../types';
 import { Constants } from '../consts';
 import { Messages } from '../messages';
 import Sensor from './base-sensor';
-import Channel from '../ant-channel';
 
 export class FitnessEquipmentSensorState {
 	constructor(deviceID: number) {
@@ -162,8 +161,8 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 
 	// commands
 
-	async send (data: Buffer, props:{logStr?:string, timeout?:number}):Promise<boolean> {
-		const {logStr,timeout} = props||{}
+	async send (data: Buffer, props:{logStr?:string, timeout?:number,args?:object}):Promise<boolean> {
+		const {logStr,timeout,args} = props||{}
 		const channel = this.getChannel()
 		if (!channel)
 			return false;
@@ -177,13 +176,13 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		if (this.isRestarting) 
 			await this.waitForRestart()
 		const tsStart = Date.now()
-		logEvent ( {message:'sending', command:logStr,timeout})	
+		logEvent ( {message:'sending FE message', command:logStr,args,timeout})	
 
 		const res = await channel.sendMessage(data,{timeout})
 		if (this.isRestarting) 
 			await this.waitForRestart()
 
-		logEvent( {message:'response', command:logStr, response:res, duration: Date.now()-tsStart})
+		logEvent( {message:'FE message response', command:logStr, args,response:res, duration: Date.now()-tsStart})
 		return res;		
 
 	}
@@ -193,7 +192,8 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		var payload = [];
 		payload.push ( this.channel.getChannelNo());
 
-		const logStr = `setUserConfiguration(${userWeight},${bikeWeight},${wheelDiameter},${gearRatio})`
+		const logStr = 'setUserConfiguration'
+		const args = {userWeight, bikeWeight, wheelDiameter, gearRatio}
 
 		var m = userWeight===undefined ? 0xFFFF : userWeight;
 		var mb = bikeWeight===undefined ? 0xFFF: bikeWeight;
@@ -224,7 +224,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		payload.push (gr&0xFF);                     // gear ratio 
 
 		let msg = Messages.acknowledgedData(payload);
-		return await this.send(msg,{logStr,timeout:this.sendTimeout})
+		return await this.send(msg,{logStr,timeout:this.sendTimeout,args})
 
     }
 
@@ -232,7 +232,8 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		var payload = [];
 		payload.push ( this.channel.getChannelNo());
 
-		const logStr = `setBasicResistance(${resistance})`;
+		const logStr = 'setBasicResistance';
+		const args = {resistance}
 
 		var res = resistance===undefined ?  0 : resistance;	
 		res = res / 0.5;
@@ -247,14 +248,15 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		payload.push (res&0xFF);                    // resistance 
 
 		let msg = Messages.acknowledgedData(payload);			
-		return await this.send(msg,{logStr,timeout:this.sendTimeout})
+		return await this.send(msg,{logStr,timeout:this.sendTimeout,args})
     }
     
     async sendTargetPower( power): Promise<boolean> {
 		var payload = [];
 		payload.push ( this.channel.getChannelNo());
 
-		const logStr = `setTargetPower(${power})`;
+		const logStr = 'setTargetPower'
+		const args = {power}
 
 		var p = power===undefined ?  0x00 : power;
 
@@ -269,14 +271,15 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		payload.push ((p>>8)&0xFF);                 // power MSB 
 
 		let msg = Messages.acknowledgedData(payload);
-		return await this.send(msg,{logStr,timeout:this.sendTimeout})
+		return await this.send(msg,{logStr,args,timeout:this.sendTimeout})
     }
 
     async sendWindResistance( windCoeff,windSpeed,draftFactor): Promise<boolean> {
 		var payload = [];
 		payload.push ( this.channel.getChannelNo());
 
-		const logStr = `setWindResistance(${windCoeff},${windSpeed},${draftFactor})`;
+		const logStr = 'setWindResistance';
+		const args = {windCoeff,windSpeed,draftFactor}
 
 		var wc = windCoeff===undefined ? 0xFF : windCoeff;
 		var ws = windSpeed===undefined ? 0xFF : windSpeed;
@@ -302,7 +305,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		payload.push (df&0xFF);                     // Drafting Factor
 
 		let msg = Messages.acknowledgedData(payload);
-		return await this.send(msg,{logStr,timeout:this.sendTimeout})
+		return await this.send(msg,{logStr,args,timeout:this.sendTimeout})
     }
 
     async sendTrackResistance( slope, rrCoeff?): Promise<boolean> {
@@ -310,7 +313,8 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		var payload = [];
 		payload.push ( this.channel.getChannelNo());
 		
-		const logStr = `setTrackResistance(${slope},${rrCoeff})`;
+		const logStr = 'setTrackResistance';
+		const args = {slope, rrCoeff}
 
 		var s  = slope===undefined ?  0xFFFF : slope;
 		var rr = rrCoeff===undefined ? 0xFF : rrCoeff;
@@ -332,7 +336,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		payload.push (rr&0xFF);                     // Drafting Factor
 
 		let msg = Messages.acknowledgedData(payload);
-		return await this.send(msg,{logStr,timeout:this.sendTimeout})
+		return await this.send(msg,{logStr,args,timeout:this.sendTimeout})
     }
 
 }
