@@ -182,7 +182,15 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 		if (this.isRestarting) 
 			await this.waitForRestart()
 
-		logEvent( {message:'FE message response', command:logStr, args,response:res, duration: Date.now()-tsStart})
+		const duration = Date.now()-tsStart;
+		logEvent( {message:'FE message response', command:logStr, args,response:res, duration})
+
+		// workaround for old Incyclist versions - can be removed later
+		if (duration>timeout) {
+			throw new Error('Timeout')
+		}
+		// ... end workaround
+
 		return res;		
 
 	}
