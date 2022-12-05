@@ -68,6 +68,7 @@ export interface IChannel {
 	stopSensor(sensor:ISensor):Promise<boolean>
 
 	sendMessage(data:Buffer, props?:{ timeout?:number}): Promise<any>
+	flush(): void
 }
 
 export type ChannelConfiguration  = {
