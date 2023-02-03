@@ -25,17 +25,24 @@ async function main() {
 	channel.attach(new BicyclePowerSensor())
 	channel.attach(new HeartRateSensor())
 	channel.attach(new FitnessEquipmentSensor())
+    channel.attach(new CadenceSensor())
 
 	channel.startScanner()
-	
 }
 
 function onDetected(profile, deviceID) {
 	console.log(`detected device: ANT+${profile} ${deviceID}`);
 }
 
-function onData(profile, deviceID,data) {
-	console.log(`id: ANT+${profile} ${deviceID}, cadence: ${data.Cadence}, power: ${data.Power}`);
+function onData(profile, deviceID, data) {
+    switch (profile) {
+        case "PWR":
+            console.log(`id: ANT+${profile} ${deviceID}, cadence: ${data.Cadence}, power: ${data.Power}`);
+            break;
+        case "CAD":
+            console.log(`id: ANT+${profile} ${deviceID}, cadence: ${data.CalculatedCadence}`);
+            break;
+    }
 }
 
 async function onAppExit() {
