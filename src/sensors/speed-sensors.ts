@@ -34,7 +34,7 @@ export class SpeedSensorState {
 
 const DEVICE_TYPE = 0x7b;
 const PROFILE = 'SPD';
-const PERIOD = 8182;
+const PERIOD = 8118;
 
 export default class SpeedSensor extends Sensor implements ISensor {
     private states: { [id: number]: SpeedSensorState } = {};

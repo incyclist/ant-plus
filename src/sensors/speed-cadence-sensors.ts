@@ -26,7 +26,7 @@ export class SpeedCadenceSensorState {
 
 const DEVICE_TYPE = 0x79;
 const PROFILE = 'S&C';
-const PERIOD = 8182;
+const PERIOD = 8086;
 
 export default class SpeedCadenceSensor extends Sensor {
     private states: { [id: number]: SpeedCadenceSensorState } = {};

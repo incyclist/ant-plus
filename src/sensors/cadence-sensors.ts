@@ -33,7 +33,7 @@ export class CadenceSensorState {
 
 const DEVICE_TYPE = 0x7a;
 const PROFILE = 'CAD';
-const PERIOD = 8182;
+const PERIOD = 8102;
 
 export default class CadenceSensor extends Sensor {
     private states: { [id: number]: CadenceSensorState } = {};
