@@ -15,7 +15,7 @@
 		"typescript": "^4.2.4"
 	},
 	"optionalDependencies": {
-		"usb": "^2.5.2"
+		"usb": "^2.7.0"
 	},
 	"scripts": {
 		"test": "jest --coverage",
