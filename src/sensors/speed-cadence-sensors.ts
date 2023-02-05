@@ -25,11 +25,15 @@ export class SpeedCadenceSensorState {
 }
 
 const DEVICE_TYPE = 0x79;
-const PROFILE = 'S&C';
+const PROFILE = 'SC';
 const PERIOD = 8086;
+
+const DEFAULT_WHEEL_CIRCUMFERENCE = 2.118; // 700c wheel circumference in meters
 
 export default class SpeedCadenceSensor extends Sensor {
     private states: { [id: number]: SpeedCadenceSensorState } = {};
+
+    wheelCircumference: number = DEFAULT_WHEEL_CIRCUMFERENCE;
 
     getDeviceType(): number {
         return DEVICE_TYPE;
@@ -46,8 +50,6 @@ export default class SpeedCadenceSensor extends Sensor {
     onEvent(data: Buffer) {
         return;
     }
-
-    wheelCircumference: number = 2.118; //This is my 700c wheel, just using as default
 
     setWheelCircumference(wheelCircumference: number) {
         this.wheelCircumference = wheelCircumference;

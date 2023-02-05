@@ -36,8 +36,12 @@ const DEVICE_TYPE = 0x7b;
 const PROFILE = 'SPD';
 const PERIOD = 8118;
 
+const DEFAULT_WHEEL_CIRCUMFERENCE = 2.118; // 700c wheel circumference in meters
+
 export default class SpeedSensor extends Sensor implements ISensor {
     private states: { [id: number]: SpeedSensorState } = {};
+
+    wheelCircumference: number = DEFAULT_WHEEL_CIRCUMFERENCE;
 
     getProfile(): string {
         return PROFILE;
@@ -60,8 +64,6 @@ export default class SpeedSensor extends Sensor implements ISensor {
     onEvent(data: Buffer) {
         return;
     }
-
-    wheelCircumference: number = 2.118; //This is my 700c wheel, just using as default
 
     setWheelCircumference(wheelCircumference: number) {
         this.wheelCircumference = wheelCircumference;
