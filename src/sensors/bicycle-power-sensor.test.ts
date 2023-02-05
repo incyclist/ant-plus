@@ -4,7 +4,7 @@ import { BicyclePowerSensor } from "./"
 const createMockChannel = (channelNo, device) =>  {
     const mockChannel:IChannel = {
         getChannelNo: () => channelNo,
-        getDevice: jest.fn( () => device),
+        getDevice: jest.fn(() => device),
         setProps: jest.fn(),
         getProps: jest.fn(),
         onMessage: jest.fn(),
@@ -14,7 +14,8 @@ const createMockChannel = (channelNo, device) =>  {
         attach: jest.fn(),
         startSensor: jest.fn(),
         stopSensor: jest.fn(),
-        sendMessage: jest.fn()
+        sendMessage: jest.fn(),
+        flush: jest.fn()
     }
     return mockChannel
 }
