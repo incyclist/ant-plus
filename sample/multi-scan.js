@@ -1,5 +1,13 @@
-const {BicyclePowerSensor,FitnessEquipmentSensor,HeartRateSensor} = require('incyclist-ant-plus');
+const {
+    BicyclePowerSensor,
+    FitnessEquipmentSensor,
+    HeartRateSensor,
+    CadenceSensor,
+    SpeedSensor,
+    SpeedCadenceSensor
+} = require('incyclist-ant-plus');
 const {AntDevice} = require('incyclist-ant-plus/lib/bindings')
+
 
 const ant = new AntDevice({startupTimeout:2000})
 
@@ -11,7 +19,7 @@ async function main() {
 		return;
 	}
 
-	const channel = await ant.getChannel();
+	const channel = ant.getChannel();
 	if (!channel) {
 		console.log('could not open channel')
 		return;
@@ -26,6 +34,8 @@ async function main() {
 	channel.attach(new HeartRateSensor())
 	channel.attach(new FitnessEquipmentSensor())
     channel.attach(new CadenceSensor())
+    channel.attach(new SpeedSensor())
+    channel.attach(new SpeedCadenceSensor())
 
 	channel.startScanner()
 }
@@ -39,8 +49,17 @@ function onData(profile, deviceID, data) {
         case "PWR":
             console.log(`id: ANT+${profile} ${deviceID}, cadence: ${data.Cadence}, power: ${data.Power}`);
             break;
+        case "HR":
+            console.log(`id: ANT+${profile} ${deviceID}, hearth rate: ${data.ComputedHeartRate}`);
+            break;
         case "CAD":
             console.log(`id: ANT+${profile} ${deviceID}, cadence: ${data.CalculatedCadence}`);
+            break;
+        case "SPD":
+            console.log(`id: ANT+${profile} ${deviceID}, speed: ${data.CalculatedSpeed}`);
+            break;
+        case "SD":
+            console.log(`id: ANT+${profile} ${deviceID}, speed: ${data.CalculatedSpeed}, cadence: ${data.CalculatedCadence}`);
             break;
     }
 }
