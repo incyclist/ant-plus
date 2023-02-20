@@ -40,7 +40,7 @@ The library will automatically detect the matching Stick type ( Garmin2 / Garmin
 #### __Reserve the next available channel__
 
 ```javascript
-const channel = await ant.getChannel();
+const channel = ant.getChannel();
 ```
 
 #### __Use channel to scan for Sensors__
@@ -190,7 +190,7 @@ write(data:Buffer):void
 sends a message to the ANT+Device
 
 
-### Channel
+### Channel (IChannel)
 
 _TODO_
 
@@ -199,6 +199,6 @@ _TODO_
 _TODO_
 
 
-### Available Sesnsors
+### Available Sensors
 
 _TODO_
