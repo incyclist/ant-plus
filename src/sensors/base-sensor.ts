@@ -1,4 +1,4 @@
-import { IChannel, ISensor } from '../types';
+import { ChannelConfiguration, IChannel, ISensor, Profile } from '../types';
 
 const SEND_TIMEOUT = 10000;
 
@@ -30,11 +30,10 @@ export default abstract class Sensor implements ISensor {
         return this.sendTimeout;
     }
 
-    abstract getProfile(): string ;
+    abstract getProfile(): Profile;
     abstract getDeviceType(): number
-    abstract getChannelConfiguration();
+    abstract getChannelConfiguration(): ChannelConfiguration;
 
-    abstract onMessage(data: Buffer); 
-    abstract onEvent( data: Buffer);
-
+    abstract onMessage(data: Buffer): void; 
+    abstract onEvent(data: Buffer): void;
 }

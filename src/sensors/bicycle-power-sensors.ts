@@ -3,7 +3,7 @@
  * Spec sheet: https://www.thisisant.com/resources/bicycle-power/
  */
 
-import { ChannelConfiguration, ISensor } from '../types';
+import { ChannelConfiguration, ISensor, Profile } from '../types';
 import { Constants } from '../consts';
 import { Messages } from '../messages';
 import Sensor from './base-sensor';
@@ -47,7 +47,7 @@ export default class BicyclePowerSensor extends Sensor implements ISensor {
 	getDeviceType(): number {
 		return DEVICE_TYPE
 	}
-	getProfile(): string {
+	getProfile(): Profile {
 		return PROFILE
 	}
 	getDeviceID(): number {

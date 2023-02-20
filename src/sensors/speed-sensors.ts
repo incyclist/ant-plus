@@ -5,7 +5,7 @@
 
 import { Constants } from '../consts';
 import { Messages } from '../messages';
-import { ISensor } from '../types';
+import { ISensor, Profile } from '../types';
 import Sensor from './base-sensor';
 
 export class SpeedSensorState {
@@ -43,7 +43,7 @@ export default class SpeedSensor extends Sensor implements ISensor {
 
     wheelCircumference: number = DEFAULT_WHEEL_CIRCUMFERENCE;
 
-    getProfile(): string {
+    getProfile(): Profile {
         return PROFILE;
     }
 

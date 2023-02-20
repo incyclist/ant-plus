@@ -1,24 +1,22 @@
 import EventEmitter from 'events';
 
-
 export interface IDecodeDataCallback {
 	(data: Buffer): void;
 }
 
 export interface BaseInterface   extends EventEmitter  {
     attach(channel: number, type: string, deviceID: number, deviceType: number, transmissionType: number,
-		timeout: number, period: number, frequency: number) 
-    detach()
-    handleEventMessages(data: Buffer)
+		timeout: number, period: number, frequency: number): void;
+    detach(): void;
+    handleEventMessages(data: Buffer): void;
 }
 
 export interface BaseScanner extends BaseInterface {
-    scan(type: string, frequency: number);
+    scan(type: string, frequency: number): void;
 }
 
 export interface BaseSensor extends BaseInterface {
-    write(data: Buffer) 
-
+    write(data: Buffer): void;
 }
 
 export type AntDeviceProps = {
@@ -29,20 +27,17 @@ export type AntDeviceProps = {
 }
 
 export interface IAntDevice {
-	//constructor(props?:AntDeviceProps)
 	open(): Promise<boolean>
 	close(): Promise<boolean>
-
 
 	getMaxChannels(): number;
 
 	getChannel(): IChannel;
-	freeChannel( channel:IChannel)
+	freeChannel( channel:IChannel): void
 
 	getDeviceNumber(): number;
 
 	write(data:Buffer):void
-	
 }
 
 export type ChannelProps = {
@@ -50,19 +45,21 @@ export type ChannelProps = {
 	logger?: { logEvent?: (event)=>void, log:(...args)=>void};
 }
 
+export type Profile = 'PWR'| 'HR'| 'FE'| 'CAD'| 'SPD'| 'SC'; 
+
 export interface IChannel {
 	getChannelNo(): number;
 	getDevice():IAntDevice;
 
-	setProps(props:ChannelProps)
+	setProps(props:ChannelProps): void;
 	getProps():ChannelProps
 
 	onMessage(data:Buffer):void
-	onDeviceData(profile: string, deviceID: number, deviceState: any)
+	onDeviceData(profile: Profile, deviceID: number, deviceState: any): void;
 
 	startScanner():Promise<boolean>
 	stopScanner():Promise<boolean>
-	attach(sensor: ISensor)
+	attach(sensor: ISensor): void;
 
 	startSensor(sensor:ISensor):Promise<boolean>
 	stopSensor(sensor:ISensor):Promise<boolean>
@@ -84,12 +81,11 @@ export interface ISensor {
 	setChannel(channel:IChannel): void 
 
 	getDeviceType(): number;
-	getProfile(): string;
+	getProfile(): Profile;
 	getDeviceID(): number;
 	getChannelConfiguration(): ChannelConfiguration
 
-	onMessage( data:Buffer)
-	onEvent ( data:Buffer)
+	onMessage(data:Buffer): void;
+	onEvent(data:Buffer): void;
 }
-
 

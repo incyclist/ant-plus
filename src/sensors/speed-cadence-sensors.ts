@@ -5,6 +5,7 @@
 
 import { Constants } from '../consts';
 import { Messages } from '../messages';
+import { Profile } from '../types';
 import Sensor from './base-sensor';
 
 export class SpeedCadenceSensorState {
@@ -39,7 +40,7 @@ export default class SpeedCadenceSensor extends Sensor {
         return DEVICE_TYPE;
     }
 
-    getProfile(): string {
+    getProfile(): Profile {
         return PROFILE;
     }
 
