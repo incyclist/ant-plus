@@ -196,7 +196,7 @@ describe('FE' ,()=>{
         expect(res2).toBeTruthy();
 */
         // next message should still be processed
-        await setTimeout( ()=>Promise.resolve(true),3000 )
+        await new Promise(resolve => setTimeout(resolve, 3000))
 
         ant.simulateMessage('a4144e001019fd269d270035e067121105100068004886')
         expect(onData).toHaveBeenLastCalledWith ('FE',4711,expect.objectContaining({"DeviceID": 4711, "Distance": 38}))

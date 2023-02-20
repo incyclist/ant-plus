@@ -3,7 +3,7 @@
  * Spec sheet: https://www.thisisant.com/resources/bicycle-speed-and-cadence/
  */
 
-import { ChannelConfiguration } from '../types';
+import { ChannelConfiguration, Profile } from '../types';
 import { Messages } from '../messages';
 import Sensor from './base-sensor';
 import { Constants } from '../consts';
@@ -42,7 +42,7 @@ export default class CadenceSensor extends Sensor {
         return DEVICE_TYPE;
     }
 
-    getProfile(): string {
+    getProfile(): Profile {
         return PROFILE;
     }
 
