@@ -16,6 +16,7 @@ export class BicyclePowerSensorState {
 	}
 
 	DeviceID: number;
+    ManId?: number;
 	PedalPower?: number;
 	RightPedalPower?: number;
 	LeftPedalPower?: number;
@@ -32,7 +33,6 @@ export class BicyclePowerSensorState {
 	CalculatedPower?: number;
 	Rssi?: number;
 	Threshold?: number;
-
 }
 
 const DEVICE_TYPE 	= 0x0B
@@ -122,6 +122,9 @@ function updateState(
 			}
 			break;
 		}
+        case 0x50:
+            state.ManId = data.readUInt16LE(Messages.BUFFER_INDEX_MSG_DATA + 4);
+            break;
 		case 0x10: {
 			const pedalPower = data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA + 2);
 			if (pedalPower !== 0xFF) {
