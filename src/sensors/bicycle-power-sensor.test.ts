@@ -39,4 +39,15 @@ describe( 'BicyclePowerSensor',()=> {
 
         })
     })    
+
+    describe('onMessage', ()=>{
+        test(`Should decode manufacturer's information`, ()=>{
+            const data = Buffer.from('a4144e0050ffffff82002300e0f4ed0b0510006800ad1cce','hex');
+            const sensor = new BicyclePowerSensor(60916, createMockChannel(0,null));
+
+            sensor.onMessage(data);
+
+            expect((sensor as any).states[60916].ManId).toEqual(130);
+        })
+    })    
 })
