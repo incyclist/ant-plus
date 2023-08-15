@@ -24,10 +24,13 @@ export type AntDeviceProps = {
 	debug?: boolean;
 	logger?: { logEvent?: (event)=>void, log:(...args)=>void};
 	startupTimeout?: number;
+	detailedStartReport?:boolean;
 }
 
+export type AntOpenResult = 'Success' |  'AlreadyInUse' | 'NoStick' | 'CommunicationError' | 'StartupError'
+
 export interface IAntDevice {
-	open(): Promise<boolean>
+	open(): Promise<boolean|AntOpenResult>
 	close(): Promise<boolean>
 
 	getMaxChannels(): number;

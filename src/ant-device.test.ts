@@ -1,5 +1,7 @@
+import { BosDescriptor, Capability, ConfigDescriptor, Device, DeviceDescriptor, Interface, LibUSBException } from 'usb'
 import Channel  from './ant-channel'
 import {AntDevice} from './ant-device'
+
 
 describe('AntDevice',()=>{
     describe('onMessage',()=>{
@@ -60,4 +62,79 @@ describe('AntDevice',()=>{
         })
 
     })
+
+    describe('open',()=>{
+
+        const usbMock= {}
+        class MockedAntDeviceSuccess extends AntDevice {
+
+            protected getDevices(): { device: Device; inUse: boolean }[] {
+                return [ {inUse:false,device: usbMock as Device}]
+            }
+            protected markAsUsed(deviceNo: number): void {
+                return
+            }
+            async openUSBDevice(device: Device): Promise<boolean> {
+                return true
+            }
+            async startup(timeout?: number | undefined): Promise<boolean> {
+                return true
+            }
+        }
+
+
+
+        test ('success with detailedReporting',async ()=>{
+
+            const logger = { logEvent:jest.fn(), log:jest.fn() }
+            const channel = new Channel(0,null as any,{})
+            channel.onMessage = jest.fn()
+            const device = new MockedAntDeviceSuccess({logger,detailedStartReport:true})
+            const res = await  device.open()
+            expect(res).toBe('Success')
+
+        })
+        test ('success without detailedReporting',async ()=>{
+            const logger = { logEvent:jest.fn(), log:jest.fn() }
+            const channel = new Channel(0,null as any,{})
+            channel.onMessage = jest.fn()
+            const device = new MockedAntDeviceSuccess({logger})
+            const res = await  device.open()
+            expect(res).toBe(true)
+            
+        })
+        test ('no stick with detailedReporting',async ()=>{
+
+            class MockedDevice extends AntDevice {
+                protected getDevices(): { device: Device; inUse: boolean }[] {
+                    return []
+                }
+            }
+
+            const logger = { logEvent:jest.fn(), log:jest.fn() }
+            const channel = new Channel(0,null as any,{})
+            channel.onMessage = jest.fn()
+            const device = new MockedDevice({logger,detailedStartReport:true})
+            const res = await  device.open()
+            expect(res).toBe('NoStick')
+            
+
+        })
+        test ('no stick without detailedReporting',async ()=>{
+            class MockedDevice extends AntDevice {
+                protected getDevices(): { device: Device; inUse: boolean }[] {
+                    return []
+                }
+            }
+
+            const logger = { logEvent:jest.fn(), log:jest.fn() }
+            const channel = new Channel(0,null as any,{})
+            channel.onMessage = jest.fn()
+            const device = new MockedDevice({logger})
+            const res = await  device.open()
+            expect(res).toBe(false)
+            
+        })
+    })
+
 })

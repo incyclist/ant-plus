@@ -2,7 +2,7 @@ import EventEmitter from 'events';
 import {usb,getDeviceList,Interface, InEndpoint,OutEndpoint,Device} from 'usb'
 import { Constants } from './consts';
 import { Messages } from './messages';
-import { IAntDevice, AntDeviceProps, IChannel } from './types';
+import { IAntDevice, AntDeviceProps, IChannel, AntOpenResult } from './types';
 import Channel from './ant-channel';
 
 
@@ -91,19 +91,24 @@ export class AntDevice implements IAntDevice {
 		return AntDevice.devices;
 	}
 
+	protected markAsUsed(deviceNo:number) {
+		AntDevice.devices[deviceNo].inUse = true;
+	}
 
-	async open(): Promise<boolean> {
+
+	async open(): Promise<boolean|AntOpenResult> {
 		const available = this.getDevices();
 
 		if (!available || available.length===0) 
-			return false;
+			return this.props.detailedStartReport ? 'NoStick' : false
 		
 		let found = -1;
 		const {deviceNo,startupTimeout} = this.props
 		
 		if (deviceNo!==undefined && deviceNo>=0) {
 			if (available.length<=deviceNo || available[deviceNo].inUse)
-				return false;
+				return this.props.detailedStartReport ? 'NoStick' : false
+
 			const opened = await this.openUSBDevice( available[deviceNo].device );
 			if (opened) 
 				found = deviceNo
@@ -127,14 +132,16 @@ export class AntDevice implements IAntDevice {
 			const started = await this.startup(startupTimeout);
 			if (!started) {
 				await this.close();
-				return false;
+				return this.props.detailedStartReport ? 'StartupError' : false
+
 			}
 
 			this.deviceNo = found;
-			AntDevice.devices[found].inUse = true;
+			this.markAsUsed(found)
+			
 			this.channels = [];
 			for (let i =0; i<this.maxChannels; i++) this.channels.push(null)
-			return true;
+			return this.props.detailedStartReport ? 'Success' : true
 		}
 		
 	}

@@ -116,6 +116,7 @@ As Incyclist is developed as React app running in Electron, it will require a sp
 constructor( props?: {
 	deviceNo?: number;
 	startupTimeout?: number;
+	detailedStartReport?:boolean
 	debug?: boolean;
 	logger?: { logEvent?: (event)=>void, log:(...args)=>void};
 })
@@ -124,6 +125,8 @@ constructor( props?: {
 _deviceNo_: In case you have multiple sticks connected, identifies the stick number. (0=first,1=second,...). Adding/removing a stick will not be recognized during the session ( i.e. after first use of constructor)
 
 _startupTimeout_: timeout (in ms) after which the startup attempt should be stopped. If no timeout is given, the `open()`call will be blocking.
+
+_detailedStartReport_: if set to true, the open() method will provide more detailed result (AntOpenResult type), otherwise it will return a boolean
 
 _debug_: enables debug mode ( message logging)
 
@@ -134,10 +137,11 @@ _logger_: logger to be use for debug logging
 
 __open__
 ```typescript
-open():Promise<boolean>
+open():Promise<boolean|AntOpenResult>
 ```
 
 Tries to open the stick. 
+In case the property _detailedStartReport_ has been set, it will return any of 'Success', 'NoStick', 'StartupError'
 Returns `true` on success and `false` on failure.
 
 __close__
