@@ -94,6 +94,9 @@ export class AntDevice implements IAntDevice {
 	protected markAsUsed(deviceNo:number) {
 		AntDevice.devices[deviceNo].inUse = true;
 	}
+	protected releaseFromUsed(deviceNo:number) {
+		AntDevice.devices[deviceNo].inUse = false;
+	}
 
 
 	async open(): Promise<boolean|AntOpenResult> {
@@ -161,8 +164,10 @@ export class AntDevice implements IAntDevice {
 		if (!closed)
 			return false;
 
+		this.releaseFromUsed(this.deviceNo)
 		this.deviceNo = undefined;
 		this.maxChannels = undefined;
+
 		// TODO: cleanup channels
 		this.channels = [];
 
@@ -305,8 +310,9 @@ export class AntDevice implements IAntDevice {
 						this.detachedKernelDriver = false;
 						try {
 							this.iface.attachKernelDriver();
-						} catch {
+						} catch  (err){
 							// Ignore kernel driver errors;
+							this.logEvent( {message:'error closing USBDevice',reason:err.message})
 						}
 					}
 					this.iface = undefined;

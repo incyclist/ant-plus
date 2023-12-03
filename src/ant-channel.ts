@@ -12,6 +12,7 @@ export type MessageInfo = {
 }
 
 export const START_TIMEOUT = 5000;
+export const CLOSE_TIMEOUT = 2000;
 export const MAX_CHANNEL_COLLISION = 10;
 
 export default class Channel  extends EventEmitter implements IChannel {
@@ -90,34 +91,51 @@ export default class Channel  extends EventEmitter implements IChannel {
         if (this.isScanner)
             await this.stopScanner()
 
-        let to;
-        try {
-            to = setTimeout( ()=>{ throw new Error('timeout')},START_TIMEOUT)
-
-            const {type,transmissionType,timeout,frequency,period} = sensor.getChannelConfiguration();
-            const deviceID = sensor.getDeviceID();
-            const deviceType = sensor.getDeviceType();
-
-            await this.sendMessage(Messages.assignChannel(this.channelNo, type));
-            await this.sendMessage(Messages.setDevice(this.channelNo, deviceID, deviceType, transmissionType));
-            await this.sendMessage(Messages.searchChannel(this.channelNo, timeout));
-            await this.sendMessage(Messages.setFrequency(this.channelNo, frequency));
-            await this.sendMessage(Messages.setPeriod(this.channelNo, period));
-            await this.sendMessage(Messages.libConfig(this.channelNo, 0xE0));
-            await this.sendMessage(Messages.openChannel(this.channelNo));
-
-            if (to) clearTimeout(to)
-
-            this.attach(sensor)
-            this.isSensor = true;
-            return this.isSensor	
-        }
-        catch(err) {
-            console.log(err)
+        return new Promise ( async done => {
+            let to;
+            let emitter = new EventEmitter();
             
-            if (to) clearTimeout(to)
-            return false;
-        }
+            try {
+                let isStarting = true
+    
+                to = setTimeout( ()=>{ emitter.emit('timeout')},START_TIMEOUT)
+                emitter.once('timeout',()=>{
+
+                    if(isStarting) {
+                        isStarting = false;
+                        done(false)
+                        return;
+                    }
+                })
+    
+                const {type,transmissionType,timeout,frequency,period} = sensor.getChannelConfiguration();
+                const deviceID = sensor.getDeviceID();
+                const deviceType = sensor.getDeviceType();
+    
+                await this.sendMessage(Messages.assignChannel(this.channelNo, type));
+                await this.sendMessage(Messages.setDevice(this.channelNo, deviceID, deviceType, transmissionType));
+                await this.sendMessage(Messages.searchChannel(this.channelNo, timeout));
+                await this.sendMessage(Messages.setFrequency(this.channelNo, frequency));
+                await this.sendMessage(Messages.setPeriod(this.channelNo, period));
+                await this.sendMessage(Messages.libConfig(this.channelNo, 0xE0));
+                await this.sendMessage(Messages.openChannel(this.channelNo));
+
+                isStarting = false    
+                if (to) clearTimeout(to)
+    
+                this.attach(sensor)
+                this.isSensor = true;
+                done(this.isSensor)
+            }
+            catch(err) {
+                console.log(err)
+                
+                if (to) clearTimeout(to)
+                done(false);
+            }
+    
+        })
+
 
     }
 
@@ -125,6 +143,7 @@ export default class Channel  extends EventEmitter implements IChannel {
         if (!this.isSensor)
             return true;
 
+        this.detach(this.attachedSensor)
         await this.closeChannel();
         this.isSensor = false;
 
@@ -176,17 +195,32 @@ export default class Channel  extends EventEmitter implements IChannel {
         const {restart} = props||{}
 
         return new Promise ( resolve => {
+
+            let isClosing = true;
+
+            const close = ()=>{
+                isClosing=false;
+                if (!restart)
+                    this.device.freeChannel(this)
+                this.off('status', onStatusUpdate)                    
+                resolve()    
+            }
+
             const onStatusUpdate = async (status)=> {
                 if (status.msg===1 && status.code===Constants.EVENT_CHANNEL_CLOSED ) {
                     await this.sendMessage(Messages.unassignChannel(this.channelNo));
-                    if (!restart)
-                        this.device.freeChannel(this)
-                    this.off('status', onStatusUpdate)                    
-                    resolve()    
+                    close();
                 }
             }
             this.removeAllListeners()
             this.on('status', onStatusUpdate)
+
+            setTimeout( ()=>{
+                if (isClosing) {
+                    close()
+                }
+
+            }, CLOSE_TIMEOUT )
             this.device.write(Messages.closeChannel(this.channelNo));
         })
     }
