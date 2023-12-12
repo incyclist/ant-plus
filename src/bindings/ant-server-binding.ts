@@ -102,6 +102,9 @@ export default class AntServerBinding extends AntDevice implements IAntDevice{
 
         if (!this.server)
             return;
+
+        this.server.removeAllListeners()
+        this.server.kill()
         this.logEvent({message:'stopping ANT+ Server'})
     }
 

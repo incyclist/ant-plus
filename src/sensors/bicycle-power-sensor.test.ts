@@ -48,6 +48,7 @@ describe( 'BicyclePowerSensor',()=> {
             sensor.onMessage(data);
 
             expect((sensor as any).states[60916].ManId).toEqual(130);
+            expect((sensor as any).states[60916].Channel).toEqual(0);
         })
     })    
 })

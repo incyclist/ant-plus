@@ -5,35 +5,30 @@
 
 import { ChannelConfiguration, Profile } from '../types';
 import { Messages } from '../messages';
-import Sensor from './base-sensor';
+import Sensor, { SensorState } from './base-sensor';
 import { Constants } from '../consts';
 
-export class CadenceSensorState {
-    constructor(deviceID: number) {
-        this.DeviceID = deviceID;
-    }
-
-    DeviceID: number;
+export class CadenceSensorState extends SensorState {
+    
+    // Common to all pages
     CadenceEventTime: number;
     CumulativeCadenceRevolutionCount: number;
-    CalculatedCadence: number;
 
+    // Data Page 0 - Default or Unknown Page
+    _UpdateTime: number = Date.now();
+    CalculatedCadence: number = 0;
+
+    // Data Page 1 - Cumulative Operating Time
     OperatingTime?: number;
-    ManId?: number;
-    SerialNumber?: number;
-    HwVersion?: number;
-    SwVersion?: number;
-    ModelNum?: number;
-    BatteryVoltage?: number;
-    BatteryStatus?: 'New' | 'Good' | 'Ok' | 'Low' | 'Critical' | 'Invalid';
-    Motion?: boolean;
-    Rssi: number;
-    Threshold: number;
+
+    // Data Page 5 - Motion and Cadence        
+    Motion?: boolean = undefined;
 }
 
 const DEVICE_TYPE = 0x7a;
 const PROFILE = 'CAD';
 const PERIOD = 8102;
+const TOGGLE_MASK = 0x80;
 
 export default class CadenceSensor extends Sensor {
     private states: { [id: number]: CadenceSensorState } = {};
@@ -68,6 +63,7 @@ export default class CadenceSensor extends Sensor {
 
         if (!this.states[deviceID]) {
             this.states[deviceID] = new CadenceSensorState(deviceID);
+            this.states[deviceID].Channel = channelNo
         }
 
         if (data.readUInt8(Messages.BUFFER_INDEX_EXT_MSG_BEGIN) & 0x40) {
@@ -92,35 +88,36 @@ export default class CadenceSensor extends Sensor {
     }
 }
 
-const TOGGLE_MASK = 0x80;
 
 function updateState(state: CadenceSensorState, data: Buffer) {
-    const pageNum = data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA);
-    switch (
-        pageNum & ~TOGGLE_MASK //check the new pages and remove the toggle bit
-    ) {
-        case 1:
-            //decode the cumulative operating time
+	state._RawData = data;
+    const page = data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA);
+    switch (page & ~TOGGLE_MASK) { //check the new pages and remove the toggle bit
+        case 1: { // cumulative operating time
+            // Decode the cumulative operating time
             state.OperatingTime = data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA + 1);
             state.OperatingTime |= data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA + 2) << 8;
             state.OperatingTime |= data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA + 3) << 16;
             state.OperatingTime *= 2;
             break;
-        case 2:
-            //decode the Manufacturer ID
+        }
+        case 2: { // manufacturer id
+            // Decode the Manufacturer ID
             state.ManId = data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA + 1);
-            //decode the 4 byte serial number
+            // Decode the 4 byte serial number
             state.SerialNumber = state.DeviceID;
             state.SerialNumber |= data.readUInt16LE(Messages.BUFFER_INDEX_MSG_DATA + 2) << 16;
             state.SerialNumber >>>= 0;
             break;
-        case 3:
-            //decode HW version, SW version, and model number
+        }
+        case 3: { // product id
+            // Decode HW version, SW version, and model number
             state.HwVersion = data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA + 1);
             state.SwVersion = data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA + 2);
             state.ModelNum = data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA + 3);
             break;
-        case 4: {
+        }
+        case 4: { // battery status
             const batteryFrac = data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA + 2);
             const batteryStatus = data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA + 3);
             state.BatteryVoltage = (batteryStatus & 0x0f) + batteryFrac / 256;
@@ -148,28 +145,46 @@ function updateState(state: CadenceSensorState, data: Buffer) {
             }
             break;
         }
-        case 5:
+        case 5: { // motion and speed
+            // NOTE: This code is untested
             state.Motion = (data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA + 1) & 0x01) === 0x01;
-            break;
-        default:
+            break; 
+        }
+        default: // default or unknown page (page 0)
             break;
     }
-
-    //get old state for calculating cumulative values
+    // Outside of switch: handle common data to all pages
+    // Older devices based on accelerometers that transmit page 0 instead of page 5 are
+    // harder to work with - it is difficult to identify when the crank stopped rotating.
+    // Stopped crank is detected by tracking the number of repeated events within a 
+    // variable period of time
+    const oldUpdateTime = state._UpdateTime;
     const oldCadenceTime = state.CadenceEventTime;
     const oldCadenceCount = state.CumulativeCadenceRevolutionCount;
+    const oldCalculatedCadence = state.CalculatedCadence;
 
+    let delay = 125000 / oldCalculatedCadence; // progressive delay, more sensitive at higher cadences
+    const eventTime = Date.now();
     let cadenceTime = data.readUInt16LE(Messages.BUFFER_INDEX_MSG_DATA + 4);
     const cadenceCount = data.readUInt16LE(Messages.BUFFER_INDEX_MSG_DATA + 6);
 
-    if (cadenceTime !== oldCadenceTime) {
+    if ((cadenceTime === oldCadenceTime) && (eventTime - oldUpdateTime >= delay)) {
+        // Detected coasting...
+        state.CalculatedCadence = 0;
+    }
+    else if (state.Motion !== undefined && !state.Motion) {
+        // Motion exists and is false
+        state.CalculatedCadence = 0;
+    }
+    else {
+        // Calculate cadence
+        state._UpdateTime = eventTime;
         state.CadenceEventTime = cadenceTime;
         state.CumulativeCadenceRevolutionCount = cadenceCount;
         if (oldCadenceTime > cadenceTime) {
-            //Hit rollover value
+            // Hit rollover value
             cadenceTime += 1024 * 64;
         }
-
         const cadence = (60 * (cadenceCount - oldCadenceCount) * 1024) / (cadenceTime - oldCadenceTime);
         if (!isNaN(cadence)) {
             state.CalculatedCadence = cadence;

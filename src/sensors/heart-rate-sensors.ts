@@ -6,36 +6,28 @@
 import { ChannelConfiguration, ISensor, Profile } from '../types';
 import { Constants } from '../consts';
 import { Messages } from '../messages';
-import Sensor from './base-sensor';
+import Sensor, { SensorState } from './base-sensor';
 
-export class HeartRateSensorState {
-	constructor(deviceID: number) {
-		this.DeviceID = deviceID;
-	}
-
-	DeviceID: number;
+export class HeartRateSensorState extends SensorState{
+	// Common to all pages
 	BeatTime: number;
 	BeatCount: number;
 	ComputedHeartRate: number;
+
+	// Data Page 1 - Cumulative Operating Time
 	OperatingTime?: number;
-	ManId?: number;
-	SerialNumber?: number;
-	HwVersion?: number;
-	SwVersion?: number;
-	ModelNum?: number;
+
+	// Data Page 4 - Measured Time 
 	PreviousBeat?: number;
 
+	// Data Page 5 - ???
 	IntervalAverage?: number;
 	IntervalMax?: number;
 	SessionAverage?: number;
+
+	// Data Page 6 - ???
 	SupportedFeatures?: number;
 	EnabledFeatures?: number;
-	BatteryLevel?: number;
-	BatteryVoltage?: number;
-	BatteryStatus?: 'New' | 'Good' | 'Ok' | 'Low' | 'Critical' | 'Invalid';
-	Rssi?: number;
-	Threshold?: number;
-
 }
 
 const DEVICE_TYPE 	= 120;
@@ -84,6 +76,7 @@ export default class HeartRateSensor extends Sensor implements ISensor {
 
 		if (!this.states[deviceID]) {
 			this.states[deviceID] = new HeartRateSensorState(deviceID);
+			this.states[deviceID].Channel = channelNo
 		}
 
 		if (!this.pages[deviceID]) {
@@ -101,7 +94,7 @@ export default class HeartRateSensor extends Sensor implements ISensor {
 			case Constants.MESSAGE_CHANNEL_BROADCAST_DATA:
 			case Constants.MESSAGE_CHANNEL_ACKNOWLEDGED_DATA:
 			case Constants.MESSAGE_CHANNEL_BURST_DATA:
-				updateState(this, this.states[deviceID], this.pages[deviceID], data);
+				updateState(this.states[deviceID], this.pages[deviceID], data);
 
 				if (this.deviceID===0 || this.deviceID===deviceID) {
 					channel.onDeviceData(this.getProfile(), deviceID, this.states[deviceID] )
@@ -126,7 +119,6 @@ type Page = {
 };
 
 function updateState(
-	sensor: HeartRateSensor,
 	state: HeartRateSensorState,
 	page: Page,
 	data: Buffer) {

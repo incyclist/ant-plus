@@ -6,18 +6,19 @@
 import { ChannelConfiguration, ISensor, Profile } from '../types';
 import { Constants } from '../consts';
 import { Messages } from '../messages';
-import Sensor from './base-sensor';
+import Sensor, { SensorState } from './base-sensor';
 
-export class FitnessEquipmentSensorState {
-	constructor(deviceID: number) {
-		this.DeviceID = deviceID;
-	}
+export class FitnessEquipmentSensorState extends SensorState{
 
-	DeviceID: number;
+	// Data Page 1 (0x01) - Calibration Request and Response Page
 	Temperature?: number;
 	ZeroOffset?: number;
 	SpinDownTime?: number;
 
+	// Data Page 2 (0x02) - Calibration in Progress
+	// Not supported
+
+	// Data Page 16 (0x10) - General FE Data
 	EquipmentType?: 'Treadmill' | 'Elliptical' | 'StationaryBike' | 'Rower' | 'Climber' | 'NordicSkier' | 'Trainer' | 'General';
 	ElapsedTime?: number;
 	Distance?: number;
@@ -27,14 +28,32 @@ export class FitnessEquipmentSensorState {
 	HeartRateSource?: 'HandContact' | 'EM' | 'ANT+';
 	State?: 'OFF' | 'READY' | 'IN_USE' | 'FINISHED';
 
+	// Date Page 17 (0x11) - General Settings Page
 	CycleLength?: number;
 	Incline?: number;
 	Resistance?: number;
 
+	// Data Page 18 (0x12) - General FE Metabolic Data
 	METs?: number;
 	CaloricBurnRate?: number;
 	Calories?: number;
 
+	// Data Page 19 (0x13) - Specific Treadmil Data
+	// Not supported
+
+	// Data Page 20 (0x14) - Specific Elliptical Data
+	// Not supported
+
+	// Data Page 22 (0x16) - Specific Rower Data
+	// Not supported
+
+	// Data Page 23 (0x17) - Specific Climber Data
+	// Not supported
+
+	// Data Page 24 (0x18) - Specific Nordic Skier Data
+	// Not supported	
+
+	// Data Page 25 (0x19) - Specific Trainer/Stationary Bike Data
 	_EventCount0x19?: number;
 	Cadence?: number;
 	AccumulatedPower?: number;
@@ -43,18 +62,33 @@ export class FitnessEquipmentSensorState {
 	TrainerStatus?: number;
 	TargetStatus?: 'OnTarget' | 'LowSpeed' | 'HighSpeed';
 
-	HwVersion?: number;
-	ManId?: number;
-	ModelNum?: number;
+	// Data Page 26 (0x1A) - Specific Trainer Torque Data
+	// Not supported
 
-	SwVersion?: number;
-	SerialNumber?: number;
+	// Data Page 48 (0x30) - Basic Resistance
+	// Not supported
+
+	// Data Page 49 (0x31) - Target Power
+	// Not supported
+
+	// Data Page 50 (0x32) - Wind Resistance
+	// Not supported
+
+	// Data Page 51 (0x33) - Track Resistance
+	// Not supported
+
+	// Data Page 54 (0x36) - FE Capabilities
+	// Not supported
+
+	// Data Page 55 (0x37) - User Configuration
+	// Not supported
+
+	// Data Page 71 (0x47) - Command Status
+	// Not supported (mandatory)	
 
 	PairedDevices: any[] = [];
-	Rssi?: number;
-	Threshold?: number;
 
-	RawData : Buffer;
+	
 }
 
 
@@ -97,6 +131,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 
 		if (!this.states[deviceID]) {
 			this.states[deviceID] = new FitnessEquipmentSensorState(deviceID);
+			this.states[deviceID].Channel = channelNo
 		}
 
 		if (data.readUInt8(Messages.BUFFER_INDEX_EXT_MSG_BEGIN) & 0x40) {
@@ -184,13 +219,7 @@ export default class FitnessEquipmentSensor extends Sensor implements ISensor {
 
 		const duration = Date.now()-tsStart;
 		logEvent( {message:'FE message response', command:logStr, args,response:res, duration})
-
-		// workaround for old Incyclist versions - can be removed later
-		if (duration>timeout) {
-			throw new Error('Timeout')
-		}
-		// ... end workaround
-
+		
 		return res;		
 
 	}
@@ -373,7 +402,7 @@ function resetState(state: FitnessEquipmentSensorState) {
 
 function updateState( state: FitnessEquipmentSensorState, data: Buffer) {
 
-	state.RawData = data; 
+	state._RawData = data; 
 
 	const page = data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA);
 	switch (page) {
