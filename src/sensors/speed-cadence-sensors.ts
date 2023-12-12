@@ -6,23 +6,22 @@
 import { Constants } from '../consts';
 import { Messages } from '../messages';
 import { Profile } from '../types';
-import Sensor from './base-sensor';
+import Sensor, { SensorState } from './base-sensor';
 
-export class SpeedCadenceSensorState {
-    constructor(deviceID: number) {
-        this.DeviceID = deviceID;
-    }
+export class SpeedCadenceSensorState extends SensorState{
 
-    DeviceID: number;
+    // Common to all pages
     CadenceEventTime: number;
     CumulativeCadenceRevolutionCount: number;
     SpeedEventTime: number;
     CumulativeSpeedRevolutionCount: number;
+
+    // Data Page 0 - 
+    _CadenceUpdateTime: number = Date.now();
+    _SpeedUpdateTime: number = Date.now();
     CalculatedCadence: number;
     CalculatedDistance: number;
     CalculatedSpeed: number;
-    Rssi: number;
-    Threshold: number;
 }
 
 const DEVICE_TYPE = 0x79;
@@ -70,6 +69,7 @@ export default class SpeedCadenceSensor extends Sensor {
 
         if (!this.states[deviceID]) {
             this.states[deviceID] = new SpeedCadenceSensorState(deviceID);
+            this.states[deviceID].Channel = channelNo
         }
 
         if (data.readUInt8(Messages.BUFFER_INDEX_EXT_MSG_BEGIN) & 0x40) {
@@ -96,44 +96,61 @@ export default class SpeedCadenceSensor extends Sensor {
 }
 
 function updateState(sensor: SpeedCadenceSensor, state: SpeedCadenceSensorState, data: Buffer) {
-    //get old state for calculating cumulative values
+	state._RawData = data;
+    // Page 0 is the only page defined for the combined speed / cadence sensor
+    // Stopped wheel and crank are detected by tracking the number of repeated events within a 
+    // given period of time
+
+    const oldCadenceUpdateTime = state._CadenceUpdateTime;
+    const oldSpeedUpdateTime = state._SpeedUpdateTime;
     const oldCadenceTime = state.CadenceEventTime;
     const oldCadenceCount = state.CumulativeCadenceRevolutionCount;
     const oldSpeedTime = state.SpeedEventTime;
     const oldSpeedCount = state.CumulativeSpeedRevolutionCount;
+    const oldCalculatedCadence = state.CalculatedCadence;
 
+    let cadenceDelay = 125000 / oldCalculatedCadence; // progressive delay, more sensitive at higher cadences
+    let speedDelay = 3000;
+    const updateTime = Date.now();
     let cadenceTime = data.readUInt16LE(Messages.BUFFER_INDEX_MSG_DATA);
     const cadenceCount = data.readUInt16LE(Messages.BUFFER_INDEX_MSG_DATA + 2);
-    let speedEventTime = data.readUInt16LE(Messages.BUFFER_INDEX_MSG_DATA + 4);
+    let speedTime = data.readUInt16LE(Messages.BUFFER_INDEX_MSG_DATA + 4);
     const speedRevolutionCount = data.readUInt16LE(Messages.BUFFER_INDEX_MSG_DATA + 6);
 
-    if (cadenceTime !== oldCadenceTime) {
+    if ((cadenceTime === oldCadenceTime) && (updateTime - oldCadenceUpdateTime >= cadenceDelay)) {
+        // Detected cadence coasting...
+        state.CalculatedCadence = 0;
+    }
+    else if ((speedTime === oldSpeedTime) && (updateTime - oldSpeedUpdateTime >= speedDelay)) {
+        // Detected wheel coasting...
+        state.CalculatedSpeed = 0;
+    }
+    else {
+        // Calculate cadence
+        state._CadenceUpdateTime = updateTime;
         state.CadenceEventTime = cadenceTime;
         state.CumulativeCadenceRevolutionCount = cadenceCount;
         if (oldCadenceTime > cadenceTime) {
-            //Hit rollover value
+            // Hit rollover value
             cadenceTime += 1024 * 64;
         }
-
         const cadence = (60 * (cadenceCount - oldCadenceCount) * 1024) / (cadenceTime - oldCadenceTime);
         if (!isNaN(cadence)) {
             state.CalculatedCadence = cadence;
         }
-    }
-
-    if (speedEventTime !== oldSpeedTime) {
-        state.SpeedEventTime = speedEventTime;
+        // Calculate distance and speed
+        state._SpeedUpdateTime = updateTime;
+        state.SpeedEventTime = speedTime;
         state.CumulativeSpeedRevolutionCount = speedRevolutionCount;
-        if (oldSpeedTime > speedEventTime) {
-            //Hit rollover value
-            speedEventTime += 1024 * 64;
+        if (oldSpeedTime > speedTime) {
+            // Hit rollover value
+            speedTime += 1024 * 64;
         }
-
+        // Distance in meters
         const distance = sensor.wheelCircumference * (speedRevolutionCount - oldSpeedCount);
         state.CalculatedDistance = distance;
-
-        //speed in m/sec
-        const speed = (distance * 1024) / (speedEventTime - oldSpeedTime);
+        // Speed in meters/sec
+        const speed = (distance * 1024) / (speedTime - oldSpeedTime);
         if (!isNaN(speed)) {
             state.CalculatedSpeed = speed;
         }
