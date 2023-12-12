@@ -2,6 +2,7 @@ import { Constants } from "./consts";
 import EventEmitter from "events";
 import { Messages } from "./messages";
 import { ChannelProps, IAntDevice, IChannel, ISensor } from "./types";
+import { start } from "repl";
 
 export type MessageInfo = {
 	msgId: number;
@@ -59,23 +60,42 @@ export default class Channel  extends EventEmitter implements IChannel {
         if (this.isSensor)
             await this.stopAllSensors()
 
-        let to;
-        try {
-            to = setTimeout( ()=>{ throw new Error('timeout')},START_TIMEOUT)
-            await this.sendMessage(Messages.assignChannel(this.channelNo, 'receive'));
-            await this.sendMessage(Messages.setDevice(this.channelNo, 0, 0, 0));
-            await this.sendMessage(Messages.setFrequency(this.channelNo, 57));
-            await this.sendMessage(Messages.setRxExt());
-            await this.sendMessage(Messages.libConfig(this.channelNo, 0xE0));
-            await this.sendMessage(Messages.openRxScan());
-            if (to) clearTimeout(to)
-            this.isScanner = true;
-            return this.isScanner	
-        }
-        catch(err) {
-            if (to) clearTimeout(to)
-            return false;
-        }
+        return new Promise ( async done => {
+            let to;
+            let starting = true;
+    
+            try {
+                
+                const send = async (data,opts?) => {
+                    if (!starting)
+                        return;
+                    return await this.sendMessage(data,opts);    
+                }
+    
+                to = setTimeout( ()=>{ 
+                    done(false)                    
+                    starting = false
+
+                },START_TIMEOUT)
+    
+                await send(Messages.assignChannel(this.channelNo, 'receive'));
+                await send(Messages.setDevice(this.channelNo, 0, 0, 0));
+                await send(Messages.setFrequency(this.channelNo, 57));
+                await send(Messages.setRxExt());
+                await send(Messages.libConfig(this.channelNo, 0xE0));
+                await send(Messages.openRxScan());
+                if (to) clearTimeout(to)
+
+                this.isScanner = true;
+                done(true)
+            }
+            catch(err) {
+                if (to) clearTimeout(to)
+                done(false);
+            }
+    
+        })            
+
     }
 
     async stopScanner(): Promise<boolean> { 
@@ -93,32 +113,36 @@ export default class Channel  extends EventEmitter implements IChannel {
 
         return new Promise ( async done => {
             let to;
-            let emitter = new EventEmitter();
-            
-            try {
-                let isStarting = true
-    
-                to = setTimeout( ()=>{ emitter.emit('timeout')},START_TIMEOUT)
-                emitter.once('timeout',()=>{
 
+            try {
+
+                let isStarting = true
+
+                const send = async (data,opts?) => {
+                    if (!isStarting)
+                        return;
+                    return await this.sendMessage(data,opts);    
+                }
+    
+    
+                to = setTimeout( ()=>{ 
                     if(isStarting) {
                         isStarting = false;
                         done(false)
-                        return;
-                    }
-                })
+                    }                    
+                },START_TIMEOUT)
     
                 const {type,transmissionType,timeout,frequency,period} = sensor.getChannelConfiguration();
                 const deviceID = sensor.getDeviceID();
                 const deviceType = sensor.getDeviceType();
     
-                await this.sendMessage(Messages.assignChannel(this.channelNo, type));
-                await this.sendMessage(Messages.setDevice(this.channelNo, deviceID, deviceType, transmissionType));
-                await this.sendMessage(Messages.searchChannel(this.channelNo, timeout));
-                await this.sendMessage(Messages.setFrequency(this.channelNo, frequency));
-                await this.sendMessage(Messages.setPeriod(this.channelNo, period));
-                await this.sendMessage(Messages.libConfig(this.channelNo, 0xE0));
-                await this.sendMessage(Messages.openChannel(this.channelNo));
+                await send(Messages.assignChannel(this.channelNo, type));
+                await send(Messages.setDevice(this.channelNo, deviceID, deviceType, transmissionType));
+                await send(Messages.searchChannel(this.channelNo, timeout));
+                await send(Messages.setFrequency(this.channelNo, frequency));
+                await send(Messages.setPeriod(this.channelNo, period));
+                await send(Messages.libConfig(this.channelNo, 0xE0));
+                await send(Messages.openChannel(this.channelNo));
 
                 isStarting = false    
                 if (to) clearTimeout(to)
@@ -127,9 +151,7 @@ export default class Channel  extends EventEmitter implements IChannel {
                 this.isSensor = true;
                 done(this.isSensor)
             }
-            catch(err) {
-                console.log(err)
-                
+            catch(err) {                
                 if (to) clearTimeout(to)
                 done(false);
             }
@@ -161,34 +183,53 @@ export default class Channel  extends EventEmitter implements IChannel {
 
         await this.closeChannel({restart:true});
         const sensor = this.attachedSensor;
+        
+
+        return new Promise ( async done => {
+            let to;
+            let isStarting = true;
+            try {
+    
+                const send = async (data,opts?) => {
+                    if (!isStarting)
+                        return;
+                    return await this.sendMessage(data,opts);    
+                }
+    
+                to = setTimeout( ()=>{ 
+                    if(isStarting) {
+                        isStarting = false;
+                        done(false)
+                    }
+                },START_TIMEOUT)
+    
+                const {type,transmissionType,timeout,frequency,period} = sensor.getChannelConfiguration();
+                const deviceID = sensor.getDeviceID();
+                const deviceType = sensor.getDeviceType();
+    
+                await this.sendMessage(Messages.assignChannel(this.channelNo, type));
+                await this.sendMessage(Messages.setDevice(this.channelNo, deviceID, deviceType, transmissionType));
+                await this.sendMessage(Messages.searchChannel(this.channelNo, timeout));
+                await this.sendMessage(Messages.setFrequency(this.channelNo, frequency));
+                await this.sendMessage(Messages.setPeriod(this.channelNo, period));
+                await this.sendMessage(Messages.libConfig(this.channelNo, 0xE0));
+                await this.sendMessage(Messages.openChannel(this.channelNo));
+                isStarting = false;
+                if (to) clearTimeout(to)
+                this.attach(sensor)
+                
+                return done(true)
+            }
+            catch(err) {
+                
+                if (to) clearTimeout(to)
+
+                return done(false);
+            }
+    
+        })
 
 
-        let to;
-        try {
-            to = setTimeout( ()=>{ throw new Error('timeout')},START_TIMEOUT)
-
-            const {type,transmissionType,timeout,frequency,period} = sensor.getChannelConfiguration();
-            const deviceID = sensor.getDeviceID();
-            const deviceType = sensor.getDeviceType();
-
-            await this.sendMessage(Messages.assignChannel(this.channelNo, type));
-            await this.sendMessage(Messages.setDevice(this.channelNo, deviceID, deviceType, transmissionType));
-            await this.sendMessage(Messages.searchChannel(this.channelNo, timeout));
-            await this.sendMessage(Messages.setFrequency(this.channelNo, frequency));
-            await this.sendMessage(Messages.setPeriod(this.channelNo, period));
-            await this.sendMessage(Messages.libConfig(this.channelNo, 0xE0));
-            await this.sendMessage(Messages.openChannel(this.channelNo));
-
-            if (to) clearTimeout(to)
-            this.attach(sensor)
-            
-            return true	
-        }
-        catch(err) {
-            console.log(err)
-            if (to) clearTimeout(to)
-            return false;
-        }
     }
 
     protected async closeChannel(props:{restart?:boolean}={}): Promise<void> {
