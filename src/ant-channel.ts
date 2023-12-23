@@ -418,7 +418,6 @@ export default class Channel  extends EventEmitter implements IChannel {
                     clearTimeout(to)
                     to = undefined
                     this.isWriting = false;
-                    to = undefined
                 }
 
                 const error = (err) => {
@@ -449,7 +448,13 @@ export default class Channel  extends EventEmitter implements IChannel {
 
                     if (timeout && !to)
                         to = setTimeout( ()=>{ 
+                            if (!this.isWriting)
+                                return;
 
+                            const found = this.messageQueue.findIndex( qi => qi.msgId ===msgId )
+                            if (found!==-1) { 
+                                this.messageQueue.splice(found,1)
+                            }
                             error( new Error('timeout'))
                             /*  
                                 unblocking the queue and sending the next command would lead to channel collisions
