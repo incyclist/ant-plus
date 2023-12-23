@@ -205,4 +205,32 @@ describe('FE' ,()=>{
         
     })
 
+    test('bugfix: no response after timeout',async ()=>{
+
+        jest.useRealTimers()
+        const onData = jest.fn()
+        channel.on('data', onData)
+        const started = await channel.startSensor(sensor)
+
+        sensor.sendTimeout = 100
+
+
+        // send one valid message to populate data
+        ant.simulateMessage('a4144e001019fd259d270035e067121105100068004886')
+        expect(onData).toHaveBeenLastCalledWith ('FE',4711,expect.objectContaining({"DeviceID": 4711, "Distance": 37}))
+
+        
+        await expect( async ()=>{await sensor.sendTrackResistance(0.2)}).rejects.toThrow('timeout')
+        
+        
+        let id = setResponseForNextMessage(sensor,'a40340000105')
+        const res2 = await sensor.sendTrackResistance(0.2)
+        resetResponseForPrevMessage(id);
+        expect(res2).toBeTruthy();
+
+      
+        
+    })
+
+
 })
