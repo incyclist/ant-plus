@@ -53,7 +53,9 @@ async function main( deviceID=-1) {
 }
 
 function onData(profile, deviceID,data) {
-	console.log(`id: ANT+${profile} ${deviceID}, heart rate: ${data.ComputedHeartRate}`);
+	const batteryLevel = (data.BatteryLevel??-1)!==-1 ? `, battery level:${data.BatteryLevel}%`  : ''
+	const batteryVoltage = (data.BatteryVoltage??-1)!==-1 ? `, battery voltage:${Number(data.BatteryVoltage).toFixed(1)}V`  : ''
+	console.log(`id: ANT+${profile} ${deviceID}, heart rate: ${data.ComputedHeartRate}, battery status:${data.BatteryStatus}${batteryLevel}${batteryVoltage}`);
 }
 
 async function onAppExit() {

@@ -171,9 +171,15 @@ function updateState(
 				if (batteryLevel !== 0xFF) {
 					state.BatteryLevel = batteryLevel;
 				}
-				state.BatteryVoltage = (batteryStatus & 0x0F) + (batteryFrac / 256);
+				const coarseBatteryVoltage = batteryStatus & 0x0F				
+				if ( coarseBatteryVoltage!==0x0F)  {
+					state.BatteryVoltage = coarseBatteryVoltage + (batteryFrac / 256);
+				}
+
 				const batteryFlags = (batteryStatus & 0x70) >>> 4;
-				switch (batteryFlags) {
+				switch (batteryFlags & 0x07) {
+					case 0:
+						state.BatteryStatus = `Reserved (0)`
 					case 1:
 						state.BatteryStatus = 'New';
 						break;
@@ -189,9 +195,10 @@ function updateState(
 					case 5:
 						state.BatteryStatus = 'Critical';
 						break;
+					case 6:
+						state.BatteryStatus = `Reserved (6)`
 					default:
-						state.BatteryVoltage = undefined;
-						state.BatteryStatus = 'Invalid';
+						state.BatteryStatus = `Invalid`
 						break;
 				}
 				break;

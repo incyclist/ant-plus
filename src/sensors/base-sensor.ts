@@ -21,7 +21,7 @@ export abstract class SensorState {
     // Common page - Battery status
     BatteryLevel?: number = undefined;
     BatteryVoltage?: number = undefined;
-    BatteryStatus?: 'New' | 'Good' | 'Ok' | 'Low' | 'Critical' | 'Invalid' = 'Invalid';
+    BatteryStatus?: 'New' | 'Good' | 'Ok' | 'Low' | 'Critical' | 'Invalid' | 'Reserved (0)' | 'Reserved (6)'  = 'Invalid';
 
     // Debugging
     _RawData?: Buffer;
