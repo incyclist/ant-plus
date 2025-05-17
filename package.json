@@ -1,6 +1,6 @@
 {
 	"name": "incyclist-ant-plus",
-	"version": "0.3.3",
+	"version": "0.3.4",
 	"description": "Incyclist library for ANT+ - originally forked from longhorn/ant-plus",
 	"dependencies": {
 		"queue-fifo": "^0.2.6"
