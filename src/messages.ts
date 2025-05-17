@@ -1,11 +1,11 @@
 import { Constants } from './consts';
 
 export class Messages {
-	static BUFFER_INDEX_MSG_LEN: number = 1;
-	static BUFFER_INDEX_MSG_TYPE: number = 2;
-	static BUFFER_INDEX_CHANNEL_NUM: number = 3;
-	static BUFFER_INDEX_MSG_DATA: number = 4;
-	static BUFFER_INDEX_EXT_MSG_BEGIN: number = 12;
+	static readonly BUFFER_INDEX_MSG_LEN: number = 1;
+	static readonly BUFFER_INDEX_MSG_TYPE: number = 2;
+	static readonly BUFFER_INDEX_CHANNEL_NUM: number = 3;
+	static readonly BUFFER_INDEX_MSG_DATA: number = 4;
+	static readonly BUFFER_INDEX_EXT_MSG_BEGIN: number = 12;
 
 	static resetSystem(): Buffer {
 		const payload: number[] = [];
@@ -50,7 +50,7 @@ export class Messages {
 		} else if (type === 'transmit_shared') {
 			payload.push(Constants.CHANNEL_TYPE_SHARED_TRANSMIT);
 		} else {
-			throw 'type not allowed';
+			throw new Error('type not allowed');
 		}
 		payload.push(Constants.DEFAULT_NETWORK_NUMBER);
 		return this.buildMessage(payload, Constants.MESSAGE_CHANNEL_ASSIGN);
@@ -125,11 +125,11 @@ export class Messages {
 		return this.buildMessage(payload, Constants.MESSAGE_CHANNEL_UNASSIGN);
 	}
 
-	static acknowledgedData  ( payload : number[] ) {
+	static acknowledgedData  ( payload : number[] ):Buffer {
 		return Messages.buildMessage( payload, Constants.MESSAGE_CHANNEL_ACKNOWLEDGED_DATA ) 
 	}
 
-	static broadcastData  ( payload : number[] ) {
+	static broadcastData  ( payload : number[] ):Buffer {
 		return Messages.buildMessage( payload, Constants.MESSAGE_CHANNEL_BROADCAST_DATA ) 
 	}
 	
