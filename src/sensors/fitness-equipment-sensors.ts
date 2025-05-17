@@ -400,7 +400,26 @@ function resetState(state: FitnessEquipmentSensorState) {
 	delete state.TargetStatus;
 }
 
+function parseFEStateValue(value:number,state: FitnessEquipmentSensorState, prev: FitnessEquipmentSensorState) {
+	switch (value) {
+		case 1: state.State = 'OFF'; break;
+		case 2:
+			state.State = 'READY';
+			if (prev.State!== 'READY')
+				resetState(state);
+			break;
+		case 3: state.State = 'IN_USE'; break;
+		case 4: state.State = 'FINISHED'; break;
+		default:
+			delete state.State;
+			break;
+	}
+}
+
+
 function updateState( state: FitnessEquipmentSensorState, data: Buffer) {
+
+	const prev = { ...state };
 
 	state._RawData = data; 
 
@@ -489,13 +508,9 @@ function updateState( state: FitnessEquipmentSensorState, data: Buffer) {
 				delete state.VirtualSpeed;
 				state.RealSpeed = speed / 1000;
 			}
-			switch ((capStateBF & 0x70) >> 4) {
-				case 1: state.State = 'OFF'; break;
-				case 2: state.State = 'READY'; resetState(state); break;
-				case 3: state.State = 'IN_USE'; break;
-				case 4: state.State = 'FINISHED'; break;
-				default: delete state.State; break;
-			}
+
+			parseFEStateValue((capStateBF & 0x70) >> 4, state,prev)
+
 			if (capStateBF & 0x80) {
 				// lap
 			}
@@ -515,13 +530,8 @@ function updateState( state: FitnessEquipmentSensorState, data: Buffer) {
 			if (resistance !== 0xFF) {
 				state.Resistance = resistance;
 			}
-			switch ((capStateBF & 0x70) >> 4) {
-				case 1: state.State = 'OFF'; break;
-				case 2: state.State = 'READY'; resetState(state); break;
-				case 3: state.State = 'IN_USE'; break;
-				case 4: state.State = 'FINISHED'; break;
-				default: delete state.State; break;
-			}
+			parseFEStateValue((capStateBF & 0x70) >> 4, state,prev)
+
 			if (capStateBF & 0x80) {
 				// lap
 			}
@@ -541,13 +551,8 @@ function updateState( state: FitnessEquipmentSensorState, data: Buffer) {
 			if (capStateBF & 0x01) {
 				state.Calories = calories;
 			}
-			switch ((capStateBF & 0x70) >> 4) {
-				case 1: state.State = 'OFF'; break;
-				case 2: state.State = 'READY'; resetState(state); break;
-				case 3: state.State = 'IN_USE'; break;
-				case 4: state.State = 'FINISHED'; break;
-				default: delete state.State; break;
-			}
+			parseFEStateValue((capStateBF & 0x70) >> 4, state,prev)
+
 			if (capStateBF & 0x80) {
 				// lap
 			}
@@ -597,13 +602,8 @@ function updateState( state: FitnessEquipmentSensorState, data: Buffer) {
 				default: delete state.TargetStatus; break;
 			}
 
-			switch ((flagStateBF & 0x70) >> 4) {
-				case 1: state.State = 'OFF'; break;
-				case 2: state.State = 'READY'; resetState(state); break;
-				case 3: state.State = 'IN_USE'; break;
-				case 4: state.State = 'FINISHED'; break;
-				default: delete state.State; break;
-			}
+			parseFEStateValue((flagStateBF & 0x70) >> 4, state,prev)
+
 			if (flagStateBF & 0x80) {
 				// lap
 			}
