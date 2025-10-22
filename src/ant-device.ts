@@ -92,10 +92,12 @@ export class AntDevice implements IAntDevice {
 	}
 
 	protected markAsUsed(deviceNo:number) {
-		AntDevice.devices[deviceNo].inUse = true;
+		if (AntDevice.devices?.[deviceNo])
+			AntDevice.devices[deviceNo].inUse = true;
 	}
 	protected releaseFromUsed(deviceNo:number) {
-		AntDevice.devices[deviceNo].inUse = false;
+		if (AntDevice.devices?.[deviceNo])
+			AntDevice.devices[deviceNo].inUse = false;
 	}
 
 
@@ -295,10 +297,14 @@ export class AntDevice implements IAntDevice {
 
 	async closeUSBDevice(): Promise<boolean> {
 
-		if ( !this.device || !this.inEp)
+		if ( !this.device || !this.inEp || !this.inEp || !this.outEp)
 			return true;
 
 		return new Promise( resolve => {
+
+			this.inEp.on('error', console.log)
+			this.outEp.on('error', console.log)
+
 			this.inEp.stopPoll(() => {
 				// @ts-ignore
 				this.iface.release(true, (error?:usb.LibUSBException) => {
@@ -314,8 +320,16 @@ export class AntDevice implements IAntDevice {
 							// Ignore kernel driver errors;
 							this.logEvent( {message:'error closing USBDevice',reason:err.message})
 						}
+
+						resolve(true)
+
+						this.device = undefined;
+						this.inEp = undefined;
+						this.outEp = undefined
+						return
+
 					}
-					this.iface = undefined;
+					
 					this.device.reset((error?:usb.LibUSBException) => {
 						if (error) {
 							return resolve(false)
