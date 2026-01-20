@@ -7,7 +7,7 @@
 	},
 	"devDependencies": {
 		"@types/jest": "^30.0.0",
-		"@types/node": "^24.9.1",
+		"@types/node": "^25.0.9",
 		"@types/usb": "^2.0.5",
 		"jest": "^30.2.0",
 		"ts-jest": "^29.4.5",
