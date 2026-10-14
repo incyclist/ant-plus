@@ -162,13 +162,11 @@ export default class Channel  extends EventEmitter implements IChannel {
     }
 
     async stopAllSensors(): Promise<boolean> {
-        if (!this.isSensor)
-            return true;
-
-        this.detach(this.attachedSensor)
+        if (this.attachedSensor)
+            this.detach(this.attachedSensor)
         await this.closeChannel();
         this.isSensor = false;
-
+        return true;
     }
 
     async stopSensor(sensor: ISensor): Promise<boolean> {        
@@ -356,7 +354,7 @@ export default class Channel  extends EventEmitter implements IChannel {
                             return
                         
                         case Constants.EVENT_RX_SEARCH_TIMEOUT:
-                            this.stopScanner()
+                            this.stopScanner().catch(err=>{ /* ignore */ })
                             return;
                         case Constants.EVENT_RX_FAIL:
                             // TODO: announce missed message / disconnect in case of too many errors?
