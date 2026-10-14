@@ -162,13 +162,11 @@ export default class Channel  extends EventEmitter implements IChannel {
     }
 
     async stopAllSensors(): Promise<boolean> {
-        if (!this.isSensor)
-            return true;
-
-        this.detach(this.attachedSensor)
+        if (this.attachedSensor)
+            this.detach(this.attachedSensor)
         await this.closeChannel();
         this.isSensor = false;
-
+        return true;
     }
 
     async stopSensor(sensor: ISensor): Promise<boolean> {        
