@@ -354,7 +354,7 @@ export default class Channel  extends EventEmitter implements IChannel {
                             return
                         
                         case Constants.EVENT_RX_SEARCH_TIMEOUT:
-                            this.stopScanner()
+                            this.stopScanner().catch(err=>{ /* ignore */ })
                             return;
                         case Constants.EVENT_RX_FAIL:
                             // TODO: announce missed message / disconnect in case of too many errors?
