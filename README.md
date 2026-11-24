@@ -15,7 +15,7 @@ Use [Zadig](http://sourceforge.net/projects/libwdi/files/zadig/) to install the 
 
 __Using the AntServerBinding binding__
 
-The `antserver.exe` needs to be deployed together with your app. You can find a pre-compiled version in the [./bin](./bin) directory, or you can compile it yourself based on the sources provided in the  [./antserver](./antserver) directory
+The `ANTServer.exe` needs to be deployed together with your app. You can find a pre-compiled version in the [./bin](./bin) directory, or you can compile it yourself based on the sources provided in the  [./antserver](./antserver) directory
 
 
 ## Install
