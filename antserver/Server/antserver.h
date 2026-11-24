@@ -14,6 +14,8 @@ All rights reserved.
 #include "dsi_thread.h"
 #include "dsi_serial_generic.hpp"
 
+#include <memory>
+
 #define CHANNEL_TYPE_MASTER   (0)
 #define CHANNEL_TYPE_SLAVE    (1)
 #define CHANNEL_TYPE_INVALID  (2)
@@ -22,7 +24,7 @@ All rights reserved.
 
 class Server {
 public:
-   Server();
+   Server() = default;
    virtual ~Server();
    BOOL Init(UCHAR ucDeviceNumber_, UCHAR ucChannelType_);
    void Close();
@@ -38,20 +40,23 @@ private:
    void ProcessMessage(ANT_MESSAGE stMessage, USHORT usSize_);
 
 
-   BOOL bBursting; //holds whether the bursting phase of the test has started
-   BOOL bBroadcasting;
-   BOOL bMyDone;
-   BOOL bDone;
-   UCHAR ucChannelType;
-   DSISerialGeneric* pclSerialObject;
-   DSIFramerANT* pclMessageObject;
-   DSI_THREAD_ID uiDSIThread;
-   DSI_CONDITION_VAR condTestDone;
-   DSI_MUTEX mutexTestDone;
+   // Stops the receive thread of the USB stick and then destroys the framer and the serial object
+   void ReleaseDevice();
 
-   BOOL bDisplay;
+   BOOL bBursting = FALSE; //holds whether the bursting phase of the test has started
+   BOOL bBroadcasting = FALSE;
+   BOOL bMyDone = FALSE;
+   BOOL bDone = FALSE;
+   UCHAR ucChannelType = CHANNEL_TYPE_INVALID;
+   std::unique_ptr<DSISerialGeneric> pclSerialObject;
+   std::unique_ptr<DSIFramerANT> pclMessageObject;
+   DSI_THREAD_ID uiDSIThread{};
+   DSI_CONDITION_VAR condTestDone{};
+   DSI_MUTEX mutexTestDone{};
 
-   UCHAR aucTransmitBuffer[ANT_STANDARD_DATA_PAYLOAD_SIZE];
+   BOOL bDisplay = TRUE;
+
+   UCHAR aucTransmitBuffer[ANT_STANDARD_DATA_PAYLOAD_SIZE] = {};
 
 
 // UCHAR pucData[USER_DATA_LENGTH];  //data to transfer in a burst

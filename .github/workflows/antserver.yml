@@ -80,11 +80,37 @@ jobs:
           $psi.RedirectStandardOutput = $true
           $psi.UseShellExecute = $false
           $p = [System.Diagnostics.Process]::Start($psi)
-          $p.StandardInput.WriteLine('ping/42')
-          $p.StandardInput.Flush()
-          $read = $p.StandardOutput.ReadLineAsync()
-          if (-not $read.Wait(10000)) { $p.Kill(); throw 'no answer to ping within 10s' }
-          if ($read.Result -ne 'debug/ping/42') { $p.Kill(); throw "unexpected answer: $($read.Result)" }
+
+          function Send([string]$line) {
+            $p.StandardInput.WriteLine($line)
+            $p.StandardInput.Flush()
+          }
+
+          # returns the first output line that starts with the given prefix (the echo of the request comes first)
+          function Wait-Line([string]$prefix) {
+            $deadline = [DateTime]::UtcNow.AddSeconds(20)
+            while ($true) {
+              $left = [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds
+              $read = $p.StandardOutput.ReadLineAsync()
+              if ($left -le 0 -or -not $read.Wait($left)) { $p.Kill(); throw "no output line starting with '$prefix'" }
+              if ($null -eq $read.Result) { throw 'server closed its output' }
+              if ($read.Result.StartsWith($prefix)) { return $read.Result }
+            }
+          }
+
+          Send 'ping/42'
+          Wait-Line 'debug/ping/42' | Out-Null
+
+          # open and close the device twice. There is no stick on the runner, so open fails, but it has to answer,
+          # release what it created and must not crash when it is opened again
+          foreach ($id in 1..4) {
+            if ($id % 2 -eq 1) { Send "request/$id/open/0" } else { Send "request/$id/close" }
+            Write-Host (Wait-Line "response/$id/")
+          }
+
+          Send 'ping/43'
+          Wait-Line 'debug/ping/43' | Out-Null
+
           $p.StandardInput.Close()
           if (-not $p.WaitForExit(5000)) { $p.Kill(); throw 'server did not exit after stdin was closed' }
 
