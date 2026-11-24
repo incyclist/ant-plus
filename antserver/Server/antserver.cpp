@@ -96,9 +96,11 @@ void readHex(char* buf, const char* txt) {
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char **argv)
 {
+   // The server is deliberately not deleted: it lives until the process ends. Destroying it when stdin is
+   // closed would free the framer while the receive thread of the USB stick may still be running.
    Server* pclDemo = new Server();
    pclDemo->WaitForInput();
-   return 0;
+   return 0; // NOSONAR
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -108,16 +110,16 @@ int main(int argc, char **argv)
 //
 ////////////////////////////////////////////////////////////////////////////////
 Server::Server()
+   : bBursting(FALSE),
+     bBroadcasting(FALSE),
+     bMyDone(FALSE),
+     bDone(FALSE),
+     ucChannelType(CHANNEL_TYPE_INVALID),
+     pclSerialObject((DSISerialGeneric*)NULL),
+     pclMessageObject((DSIFramerANT*)NULL),
+     uiDSIThread((DSI_THREAD_ID)NULL),
+     bDisplay(TRUE)
 {
-   ucChannelType = CHANNEL_TYPE_INVALID;
-   pclSerialObject = (DSISerialGeneric*)NULL;
-   pclMessageObject = (DSIFramerANT*)NULL;
-   uiDSIThread = (DSI_THREAD_ID)NULL;
-   bMyDone = FALSE;
-   bDone = FALSE;
-   bDisplay = TRUE;
-   bBroadcasting = FALSE;
-
    memset(aucTransmitBuffer,0,ANT_STANDARD_DATA_PAYLOAD_SIZE);
 }
 
