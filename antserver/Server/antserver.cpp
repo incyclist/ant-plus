@@ -13,6 +13,7 @@ All rights reserved.
 #include "dsi_thread.h"
 #include "dsi_serial_generic.hpp"
 #include "dsi_debug.hpp"
+#include "server_output.hpp"
 
 #include <stdio.h>
 #include <assert.h>
@@ -148,7 +149,8 @@ void Server::WaitForInput() {
 		vector<string> res;
 		string delimiter = "/";
 
-		cout << "debug/" << line << "\n";
+		// echo of every request: the host uses the echo of its "ping/<ts>" requests to see that this server is alive
+		serverWriteLine("debug/" + line);
 		
 		size_t pos_start = 0, pos_end, delim_len = delimiter.length();
 		std::string token;
@@ -169,12 +171,12 @@ void Server::WaitForInput() {
 				if (cmd == "open") {
 
 					BOOL opened = Init(stoi(res[3]), 0);
-					std::cout << "response/" << id << "/" << (opened? "true": "false") << "\n";
+					serverWriteLine("response/" + id + "/" + (opened? "true": "false"));
 				}
 				else if (cmd == "close") {
 
 					Close();					
-					std::cout << "response/" << id << "/" << "\n";
+					serverWriteLine("response/" + id + "/");
 				}
 				//printf("response/%s/%s\n", id, "true");
 				//}
@@ -182,7 +184,7 @@ void Server::WaitForInput() {
 			}
 			else if (res[0] == "message") {
 				if (pclMessageObject == NULL) {
-					cout << "error/channel_not_opened\n";
+					serverWriteLine("error/channel_not_opened");
 				}
 				else {
 					const string data = res[1];
