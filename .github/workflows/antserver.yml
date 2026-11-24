@@ -45,9 +45,13 @@ jobs:
       - name: Build antserver.exe (Release, x86, v140)
         shell: pwsh
         run: |
-          # v140 defaults to the Windows 8.1 SDK, which is not on the runner: use the newest Windows 10/11 SDK
+          # v140 defaults to the Windows 8.1 SDK, which is not on the runner. Use the newest Windows 10 SDK
+          # that the 2015 compiler can still parse: the headers of 10.0.22000 and newer need intrinsics
+          # (_mm_loadu_si64) that v140 does not have.
           $sdk = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\Include" -Directory |
-                   Where-Object { $_.Name -match '^10\.' } | Sort-Object { [version]$_.Name } | Select-Object -Last 1
+                   Where-Object { $_.Name -match '^10\.' -and [version]$_.Name -lt [version]'10.0.22000.0' } |
+                   Sort-Object { [version]$_.Name } | Select-Object -Last 1
+          if (-not $sdk) { throw 'no Windows 10 SDK older than 10.0.22000 on this runner' }
           Write-Host "Windows SDK: $($sdk.Name)"
           msbuild antserver\ANT_Libraries.sln /m /nologo /p:Configuration=Release /p:Platform=x86 `
             /p:PlatformToolset=v140 /p:WindowsTargetPlatformVersion=$($sdk.Name)
