@@ -1,0 +1,99 @@
+name: AntServer (Windows)
+
+# Builds antserver.exe (the ANT+ server that the desktop app ships as AntServer.bin) from antserver/.
+#
+# The binary has to keep using the same shared libraries as the one shipped with the desktop app
+# (MSVCP140.dll / VCRUNTIME140.dll from the VS2015 runtime, libusb0.dll and the SiLabs DLLs that are
+# loaded at runtime). Therefore the build uses the same SDK sources from this repo and pins the
+# MSVC v140 toolset instead of the toolset of the runner image, and the job fails if the binary imports
+# a newer runtime.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'antserver/**'
+      - '.github/workflows/antserver.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'antserver/**'
+      - '.github/workflows/antserver.yml'
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: microsoft/setup-msbuild@v2
+
+      - name: Install MSVC v140 toolset
+        shell: pwsh
+        run: |
+          $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
+          $vs = & "$installer\vswhere.exe" -latest -property installationPath
+          $proc = Start-Process -FilePath "$installer\vs_installer.exe" -Wait -PassThru -ArgumentList @(
+            'modify', '--installPath', "`"$vs`"",
+            '--add', 'Microsoft.VisualStudio.Component.VC.140',
+            '--quiet', '--norestart', '--nocache')
+          # 3010 = success, reboot required
+          if ($proc.ExitCode -ne 0 -and $proc.ExitCode -ne 3010) { throw "installing the v140 toolset failed: $($proc.ExitCode)" }
+
+      - name: Build antserver.exe (Release, x86, v140)
+        shell: pwsh
+        run: |
+          # v140 defaults to the Windows 8.1 SDK, which is not on the runner: use the newest Windows 10/11 SDK
+          $sdk = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\Include" -Directory |
+                   Where-Object { $_.Name -match '^10\.' } | Sort-Object { [version]$_.Name } | Select-Object -Last 1
+          Write-Host "Windows SDK: $($sdk.Name)"
+          msbuild antserver\ANT_Libraries.sln /m /nologo /p:Configuration=Release /p:Platform=x86 `
+            /p:PlatformToolset=v140 /p:WindowsTargetPlatformVersion=$($sdk.Name)
+          if ($LASTEXITCODE -ne 0) { throw 'build failed' }
+
+      - name: Check the shared libraries the binary depends on
+        shell: pwsh
+        run: |
+          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $dumpbin = Get-ChildItem "$vsPath\VC\Tools\MSVC" -Recurse -Filter dumpbin.exe |
+                       Where-Object { $_.FullName -match 'Hostx64\\x64' } | Select-Object -First 1
+          $out = & $dumpbin.FullName /dependents antserver\Release\antserver.exe
+          $deps = $out | Where-Object { $_ -match '^\s+\S+\.dll\s*$' } | ForEach-Object { $_.Trim() }
+          $deps | Tee-Object -FilePath dependencies.txt
+          # the desktop app ships MSVCP140.dll and VCRUNTIME140.dll of the VS2015 runtime only
+          $newer = $deps | Where-Object { $_ -match '(?i)^(vcruntime140_\d|msvcp140_\d|concrt|vcomp|msvcr)' }
+          if ($newer) { throw "binary depends on runtime libraries that the desktop app does not ship: $newer" }
+
+      - name: Smoke test (no ANT+ stick needed)
+        shell: pwsh
+        run: |
+          # the server echoes every request as debug/<request>; the host uses the echo of ping/<ts> as heartbeat
+          $psi = New-Object System.Diagnostics.ProcessStartInfo
+          $psi.FileName = (Resolve-Path antserver\Release\antserver.exe).Path
+          $psi.RedirectStandardInput = $true
+          $psi.RedirectStandardOutput = $true
+          $psi.UseShellExecute = $false
+          $p = [System.Diagnostics.Process]::Start($psi)
+          $p.StandardInput.WriteLine('ping/42')
+          $p.StandardInput.Flush()
+          $read = $p.StandardOutput.ReadLineAsync()
+          if (-not $read.Wait(10000)) { $p.Kill(); throw 'no answer to ping within 10s' }
+          if ($read.Result -ne 'debug/ping/42') { $p.Kill(); throw "unexpected answer: $($read.Result)" }
+          $p.StandardInput.Close()
+          if (-not $p.WaitForExit(5000)) { $p.Kill(); throw 'server did not exit after stdin was closed' }
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item antserver\Release\antserver.exe dist\ANTserver.bin
+          Copy-Item dependencies.txt dist\dependencies.txt
+          Get-FileHash dist\ANTserver.bin -Algorithm SHA256 | ForEach-Object { "$($_.Hash)  ANTserver.bin" } | Set-Content dist\ANTserver.bin.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ANTserver.bin
+          path: dist/
+          if-no-files-found: error
