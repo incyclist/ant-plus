@@ -14,6 +14,7 @@ All rights reserved.
 #include "dsi_thread.h"
 #include "dsi_serial_generic.hpp"
 
+#include <array>
 #include <memory>
 
 #define CHANNEL_TYPE_MASTER   (0)
@@ -56,7 +57,7 @@ private:
 
    BOOL bDisplay = TRUE;
 
-   UCHAR aucTransmitBuffer[ANT_STANDARD_DATA_PAYLOAD_SIZE] = {};
+   std::array<UCHAR, ANT_STANDARD_DATA_PAYLOAD_SIZE> aucTransmitBuffer{};
 
 
 // UCHAR pucData[USER_DATA_LENGTH];  //data to transfer in a burst
