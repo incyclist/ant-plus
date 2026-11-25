@@ -17,6 +17,7 @@ All rights reserved.
 
 #include <stdio.h>
 #include <assert.h>
+#include <string.h>
 
 #include <string>
 #include <iostream>
@@ -61,13 +62,57 @@ using std::cout;
 #define MESSAGE_BUFFER_DATA14_INDEX ((UCHAR) 13)
 
 
-void readHex(char* buf, const char* txt) {
-	char b[3] = "00";
-	for (unsigned int i = 0; i < strlen(txt); i += 2) {
-		b[0] = *(txt + i);
-		b[1] = *(txt + i + 1);
-		*(buf + (i >> 1)) = strtoul(b, NULL, 16);
+// A message of the host is <message id> <data bytes> <checksum>. The framer builds the frame (sync, size, checksum) itself,
+// so the data is at most MESG_MAX_SIZE_VALUE bytes and the checksum of the host is not used.
+#define MESSAGE_MIN_BYTES     (3)                          // id, at least one data byte and checksum
+#define MESSAGE_MAX_BYTES     (MESG_MAX_SIZE_VALUE + 2)    // id, data and checksum
+#define MESSAGE_OVERHEAD      (2)                          // bytes that are not data: id and checksum
+
+static int hexDigitValue(char c)
+{
+	if (c >= '0' && c <= '9') return c - '0';
+	if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+	if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+	return -1;
+}
+
+// Decodes a string of hex digits. Fails if the length is odd, a character is not a hex digit or the
+// result would be longer than maxBytes. The output is not touched in these cases.
+static bool parseHex(const string& hex, size_t maxBytes, vector<UCHAR>& bytes)
+{
+	if (hex.length() % 2 != 0 || hex.length() / 2 > maxBytes)
+		return false;
+
+	vector<UCHAR> decoded;
+	decoded.reserve(hex.length() / 2);
+	for (size_t i = 0; i < hex.length(); i += 2) {
+		const int high = hexDigitValue(hex[i]);
+		const int low = hexDigitValue(hex[i + 1]);
+		if (high < 0 || low < 0)
+			return false;
+		decoded.push_back(static_cast<UCHAR>(high * 16 + low));
 	}
+	bytes = decoded;
+	return true;
+}
+
+// The device number is the number of the USB stick (0 for the first one): decimal digits only, 0 to 255
+static bool parseDeviceNumber(const string& text, UCHAR& deviceNumber)
+{
+	if (text.empty() || text.length() > 3)
+		return false;
+
+	unsigned int value = 0;
+	for (const char c : text) {
+		if (c < '0' || c > '9')
+			return false;
+		value = value * 10 + static_cast<unsigned int>(c - '0');
+	}
+	if (value > 255)
+		return false;
+
+	deviceNumber = static_cast<UCHAR>(value);
+	return true;
 }
 
 
@@ -138,66 +183,94 @@ void Server::ReleaseDevice()
 // Waits for user input an processes the requests/messages
 //
 ////////////////////////////////////////////////////////////////////////////////
+static vector<string> splitLine(const string& line)
+{
+	vector<string> parts;
+	size_t start = 0;
+	size_t end = line.find('/');
+	while (end != string::npos) {
+		parts.push_back(line.substr(start, end - start));
+		start = end + 1;
+		end = line.find('/', start);
+	}
+	parts.push_back(line.substr(start));
+	return parts;
+}
+
+// The host waits for the answer of every request, so every request that has an id is answered
+void Server::HandleRequest(const vector<string>& res)
+{
+	if (res.size() < 2) {
+		serverWriteLine("error/request/invalid_request");
+		return;
+	}
+
+	const string& id = res[1];
+	const string cmd = res.size() > 2 ? res[2] : "";
+
+	if (cmd == "open") {
+		UCHAR deviceNumber = 0;
+		const bool valid = res.size() > 3 && parseDeviceNumber(res[3], deviceNumber);
+		const BOOL opened = valid ? Init(deviceNumber, 0) : FALSE;
+		serverWriteLine("response/" + id + "/" + (opened ? "true" : "false"));
+	}
+	else if (cmd == "close") {
+		Close();
+		serverWriteLine("response/" + id + "/");
+	}
+	else {
+		serverWriteLine("response/" + id + "/false");
+	}
+}
+
+void Server::HandleMessage(const vector<string>& res)
+{
+	if (!pclMessageObject) {
+		serverWriteLine("error/channel_not_opened");
+		return;
+	}
+
+	vector<UCHAR> bytes;
+	if (res.size() < 2 || !parseHex(res[1], MESSAGE_MAX_BYTES, bytes) || bytes.size() < MESSAGE_MIN_BYTES) {
+		serverWriteLine("error/message/invalid_message");
+		return;
+	}
+
+	const USHORT dataSize = static_cast<USHORT>(bytes.size() - MESSAGE_OVERHEAD);
+	ANT_MESSAGE message = {};
+	message.ucMessageID = bytes[0];
+	memcpy(message.aucData, &bytes[1], dataSize);
+	pclMessageObject->WriteMessage(&message, dataSize);
+}
+
 void Server::WaitForInput() {
 
 	for (string line; std::getline(std::cin, line);) {
 
-		vector<string> res;
-		string delimiter = "/";
-
 		// echo of every request: the host uses the echo of its "ping/<ts>" requests to see that this server is alive
 		serverWriteLine("debug/" + line);
-		
-		size_t pos_start = 0, pos_end, delim_len = delimiter.length();
-		std::string token;
 
-		while ((pos_end = line.find(delimiter, pos_start)) != string::npos) {
-			token = line.substr(pos_start, pos_end - pos_start);
-			pos_start = pos_end + delim_len;
-			res.push_back(token);
-		}
-		res.push_back(line.substr(pos_start));
+		// a writer that ends its lines with CRLF must not turn every value into an invalid one
+		if (!line.empty() && line.back() == '\r')
+			line.pop_back();
 
+		const vector<string> res = splitLine(line);
 
 		try {
-			if (res[0] == "request") {
-				string id = res[1];
-				string cmd = res[2];
-
-				if (cmd == "open") {
-
-					BOOL opened = Init(stoi(res[3]), 0);
-					serverWriteLine("response/" + id + "/" + (opened? "true": "false"));
-				}
-				else if (cmd == "close") {
-
-					Close();					
-					serverWriteLine("response/" + id + "/");
-				}
-				//printf("response/%s/%s\n", id, "true");
-				//}
-
-			}
-			else if (res[0] == "message") {
-				if (!pclMessageObject) {
-					serverWriteLine("error/channel_not_opened");
-				}
-				else {
-					const string data = res[1];
-
-					size_t len = data.length();
-					char buffer[MESG_BUFFER_SIZE];
-					readHex(&buffer[0], data.c_str());
-
-					pclMessageObject->WriteMessage(buffer, len / 2-2);
-				}
-			}
-
+			if (res[0] == "request")
+				HandleRequest(res);
+			else if (res[0] == "message")
+				HandleMessage(res);
 		}
-		catch(...) {}
-
-
-		
+		catch (...) {
+			// never stop serving because of a request that could not be handled; answer it if the host waits for it
+			if (res[0] == "request" && res.size() > 1)
+				serverWriteLine("response/" + res[1] + "/false");
+			else if (res[0] == "request")
+				serverWriteLine("error/request/invalid_request");
+			else
+				serverWriteLine("error/message/invalid_message");
+		}
 	}
 }
 
@@ -262,7 +335,6 @@ BOOL Server::Init(UCHAR ucDeviceNumber_, UCHAR /*ucChannelType_*/)
    // to another program
    if(!bStatus)
    {
-      //printf("Failed to connect to device at USB port %d\n", ucDeviceNumber_);
       return FALSE;
    }
 
