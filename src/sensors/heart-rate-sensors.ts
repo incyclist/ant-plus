@@ -180,6 +180,7 @@ function updateState(
 				switch (batteryFlags & 0x07) {
 					case 0:
 						state.BatteryStatus = `Reserved (0)`
+						break;
 					case 1:
 						state.BatteryStatus = 'New';
 						break;
@@ -197,6 +198,7 @@ function updateState(
 						break;
 					case 6:
 						state.BatteryStatus = `Reserved (6)`
+						break;
 					default:
 						state.BatteryStatus = `Invalid`
 						break;

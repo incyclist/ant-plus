@@ -7,6 +7,9 @@ import { AntDevice } from "../ant-device";
 
 const DEFAULT_BINARY_PATH = 'antserver.exe'
 const MAX_PING_TIMEOUT = 3000;
+// Time that close() waits for the server to confirm a close request. A healthy server needs up to ~1s, as closing the
+// USB stick waits for the receive thread. The caller (interface disconnect) gives up after 1s, so this has to stay below.
+const CLOSE_TIMEOUT = 800;
 
 export interface AntServerDeviceProps extends AntDeviceProps  {
     binaryPath?: string
@@ -98,14 +101,29 @@ export default class AntServerBinding extends AntDevice implements IAntDevice{
         })
     }
 
-    stopServer():void {
+    stopServer(closeConfirmed:boolean=false, closeDurationMs:number=0):void {
 
-        if (!this.server)
+        const server = this.server
+        if (!server)
             return;
 
-        this.server.removeAllListeners()
-        this.server.kill()
-        this.logEvent({message:'stopping ANT+ Server'})
+        this.server = undefined
+
+        server.removeAllListeners()
+        server.stdout?.unpipe()
+        server.stdout?.removeAllListeners()
+        // the streams can still emit an error while the process is going down, without a listener that would throw
+        server.stdout?.on('error',()=>{})
+        server.stdin?.on('error',()=>{})
+        this.serverData = ''
+
+        server.kill()
+        this.logEvent({message:'stopping ANT+ Server', closeConfirmed, closeDurationMs})
+
+        // requests that are still waiting will never be answered
+        const pending = Object.values(this.requests)
+        this.requests = {}
+        pending.forEach( r => r.reject(new Error('ANT+ Server stopped')) )
     }
 
     onServerError(err): void {
@@ -150,6 +168,7 @@ export default class AntServerBinding extends AntDevice implements IAntDevice{
                 const requestId = parts[1]
                 const request = this.requests[requestId];
                 if (request) {
+                    delete this.requests[requestId]
                     parts.splice(0,2)
                     request.resolve(...parts)
                 }
@@ -213,8 +232,6 @@ export default class AntServerBinding extends AntDevice implements IAntDevice{
             this.logEvent({message: 'Ant+ Server out error:', error:err.message});
             return false;
         }
-        
-       return true;
     }
 
     async sendRequest(command:string,...args): Promise<any>  {
@@ -268,14 +285,11 @@ export default class AntServerBinding extends AntDevice implements IAntDevice{
                         for (let i =0; i<this.maxChannels; i++) this.channels.push(null)
                         this.logEvent({message:'ANT+ device opened',deviceNo})
                         return true;
-            
-
-
-                    return true
                 }
                 else {
                     this.logEvent({message:'ANT+ device could not be opened',reason:'open failed'})
-                    this.close();
+                    // has to be awaited: the server is stopped asynchronously and a new open() must not find the old server still in place
+                    await this.close();
                     return false;
                 }
             }
@@ -290,28 +304,46 @@ export default class AntServerBinding extends AntDevice implements IAntDevice{
     }
 
     async close(): Promise<boolean> {
-        if (this.server) {
-
-            if (this.pingIv) {
-                clearInterval(this.pingIv)
-                this.pingIv = undefined;
-            }
-
-            const res = await this.sendRequest('close')
-            
-            if(res) {
-                this.stopServer()
-                return true;
-            }
+        if (!this.server)
             return false;
+
+        if (this.pingIv) {
+            clearInterval(this.pingIv)
+            this.pingIv = undefined;
         }
-        return false;
+
+        const start = Date.now()
+        let closed = false;
+        try {
+            closed = await this.sendCloseRequest()
+        }
+        catch(err) {
+            this.logEvent({message:'ANT+ Server close request failed', error:err.message})
+        }
+
+        // The server process is stopped in any case: a server that does not answer (e.g. because it is stuck while
+        // closing the USB stick) must not be left running, it would stay alive next to the server of the next open()
+        this.stopServer(closed, Date.now()-start)
+        return closed
+    }
+
+    // resolves with true if the server confirmed the close request, with false if it did not answer in time
+    protected async sendCloseRequest(): Promise<boolean> {
+        let timer: NodeJS.Timeout
+        const timeout = new Promise<boolean>( resolve => { timer = setTimeout( ()=>resolve(false), CLOSE_TIMEOUT) })
+
+        try {
+            // the response to a close request has no payload, so the confirmation is the response itself, not its content
+            return await Promise.race([ this.sendRequest('close').then( ()=>true), timeout])
+        }
+        finally {
+            clearTimeout(timer)
+        }
     }
 
 
     write(data: Buffer): void {
 		if (this.props.debug) {
-			const logger = this.props.logger || console;
 			this.logEvent({message:'ANT+ SEND', data:data.toString('hex')});
 		}
 

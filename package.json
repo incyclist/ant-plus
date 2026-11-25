@@ -7,9 +7,9 @@
 	},
 	"devDependencies": {
 		"@types/jest": "^30.0.0",
-		"@types/node": "^26.6.5",
+		"@types/node": "^26.6.10",
 		"jest": "^30.5.2",
-		"ts-jest": "^29.4.14",
+		"ts-jest": "^29.4.15",
 		"typescript": "^5.9.3"
 	},
 	"optionalDependencies": {
@@ -18,7 +18,8 @@
 	"scripts": {
 		"test": "jest --coverage",
 		"build": "tsc",
-		"dev": "tsc --watch"
+		"dev": "tsc --watch",
+		"prepublishOnly": "npm run build && npm test"
 	},
 	"files": [
 		"lib/"
@@ -47,7 +48,7 @@
 	},
 	"bugs": "https://github.com/incyclist/ant-plus/issues",
 	"allowScripts": {
-		"usb@2.19.1": true,
+		"usb@2.19.2": true,
 		"@parcel/watcher": false,
 		"unrs-resolver": false
 	}
