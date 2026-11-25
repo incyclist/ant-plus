@@ -52,3 +52,4 @@ typings
 antserver/.vs/
 antserver/ANT_LIB/ANT_Lib.vcxproj.user
 nohup.out
+.npmrc
