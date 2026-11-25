@@ -18,7 +18,7 @@ All rights reserved.
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
-#include <exception>
+#include <stdexcept>
 
 #include <string>
 #include <iostream>
@@ -184,8 +184,8 @@ void Server::ReleaseDevice()
 // Waits for user input an processes the requests/messages
 //
 ////////////////////////////////////////////////////////////////////////////////
-// takes the line by value: the toolset of this project (MSVC v140) has no std::string_view
-static vector<string> splitLine(string line)
+// std::string_view (rule S6009) is not available: this project is built with the MSVC v140 toolset, which is before C++17
+static vector<string> splitLine(const string& line) // NOSONAR
 {
 	vector<string> parts;
 	size_t start = 0;
@@ -238,7 +238,7 @@ void Server::HandleMessage(const vector<string>& res)
 		return;
 	}
 
-	const USHORT dataSize = static_cast<USHORT>(bytes.size() - MESSAGE_OVERHEAD);
+	const auto dataSize = static_cast<USHORT>(bytes.size() - MESSAGE_OVERHEAD);
 	auto message = ANT_MESSAGE{};
 	message.ucMessageID = bytes[0];
 	memcpy(message.aucData, &bytes[1], dataSize);
@@ -264,7 +264,7 @@ void Server::WaitForInput() {
 			else if (res[0] == "message")
 				HandleMessage(res);
 		}
-		catch (const std::exception&) {
+		catch (const std::logic_error&) { // what the string and vector operations above throw (out_of_range, length_error)
 			// never stop serving because of a request that could not be handled; answer it if the host waits for it
 			if (res[0] == "request" && res.size() > 1)
 				serverWriteLine("response/" + res[1] + "/false");
