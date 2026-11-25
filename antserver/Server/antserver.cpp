@@ -245,6 +245,15 @@ void Server::HandleMessage(const vector<string>& res)
 	pclMessageObject->WriteMessage(&message, dataSize);
 }
 
+// What the host gets for a line that could not be handled. The server never stops serving because of one bad line;
+// a request that has an id is answered, as the host waits for the answer.
+static string rejectionOf(const vector<string>& res)
+{
+	if (res[0] != "request")
+		return "error/message/invalid_message";
+	return res.size() > 1 ? "response/" + res[1] + "/false" : "error/request/invalid_request";
+}
+
 void Server::WaitForInput() {
 
 	for (string line; std::getline(std::cin, line);) {
@@ -264,14 +273,11 @@ void Server::WaitForInput() {
 			else if (res[0] == "message")
 				HandleMessage(res);
 		}
-		catch (const std::logic_error&) { // what the string and vector operations above throw (out_of_range, length_error)
-			// never stop serving because of a request that could not be handled; answer it if the host waits for it
-			if (res[0] == "request" && res.size() > 1)
-				serverWriteLine("response/" + res[1] + "/false");
-			else if (res[0] == "request")
-				serverWriteLine("error/request/invalid_request");
-			else
-				serverWriteLine("error/message/invalid_message");
+		catch (const std::out_of_range&) {
+			serverWriteLine(rejectionOf(res));
+		}
+		catch (const std::length_error&) {
+			serverWriteLine(rejectionOf(res));
 		}
 	}
 }
