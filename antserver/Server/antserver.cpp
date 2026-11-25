@@ -18,6 +18,7 @@ All rights reserved.
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
+#include <exception>
 
 #include <string>
 #include <iostream>
@@ -183,7 +184,8 @@ void Server::ReleaseDevice()
 // Waits for user input an processes the requests/messages
 //
 ////////////////////////////////////////////////////////////////////////////////
-static vector<string> splitLine(const string& line)
+// takes the line by value: the toolset of this project (MSVC v140) has no std::string_view
+static vector<string> splitLine(string line)
 {
 	vector<string> parts;
 	size_t start = 0;
@@ -237,7 +239,7 @@ void Server::HandleMessage(const vector<string>& res)
 	}
 
 	const USHORT dataSize = static_cast<USHORT>(bytes.size() - MESSAGE_OVERHEAD);
-	ANT_MESSAGE message = {};
+	auto message = ANT_MESSAGE{};
 	message.ucMessageID = bytes[0];
 	memcpy(message.aucData, &bytes[1], dataSize);
 	pclMessageObject->WriteMessage(&message, dataSize);
@@ -262,7 +264,7 @@ void Server::WaitForInput() {
 			else if (res[0] == "message")
 				HandleMessage(res);
 		}
-		catch (...) {
+		catch (const std::exception&) {
 			// never stop serving because of a request that could not be handled; answer it if the host waits for it
 			if (res[0] == "request" && res.size() > 1)
 				serverWriteLine("response/" + res[1] + "/false");
