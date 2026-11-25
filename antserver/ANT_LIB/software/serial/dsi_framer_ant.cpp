@@ -13,6 +13,7 @@ All rights reserved.
 #include "checksum.h"
 #include "dsi_thread.h"
 #include "dsi_framer_ant.hpp"
+#include "server_output.hpp"
 
 #include <string>
 #include <iostream>
@@ -2241,26 +2242,13 @@ void DSIFramerANT::ProcessMessage(void)
    }
    else
    {
-      // Add message to the queue.
-      if ((USHORT)(usMessageHead - usMessageTail) < (USHORT)(sizeof(astMessageBuffer) / sizeof(ANT_MESSAGE_ITEM) - 1))
-      {
-		 ucSize += (MESG_FRAME_SIZE - MESG_SYNC_SIZE);
-         astMessageBuffer[usMessageHead].ucSize = ucSize;
-         astMessageBuffer[usMessageHead].stANTMessage.ucMessageID = ucMessageID;
-         memcpy(astMessageBuffer[usMessageHead].stANTMessage.aucData, &aucRxFifo[0], ucSize);
-         usMessageHead++;                                   // Rollover of usMessageHead happens automagically because our buffer size is MAX_USHORT + 1.
+      ucSize += (MESG_FRAME_SIZE - MESG_SYNC_SIZE);
 
-
-		 cout << "message/";
-		 for (int i = 0; i < ucSize; ++i)
-			 cout << std::setfill('0') << std::setw(2) << std::hex << (int)aucRxFifo[i];
-		 cout << "\n";
-
-      }
-      else
-      {
-         ucError = DSI_FRAMER_ANT_EQUEUE_OVERFLOW;
-      }
+      // The ANT server hands every message to its host application right away. Nobody reads the
+      // message queue (WaitForMessage() is never called), so the message must not be queued: the queue
+      // would be full after 65535 messages (about an hour with four sensors) and from then on no
+      // message would be forwarded any more, while the USB stick keeps receiving.
+      serverWriteMessage(aucRxFifo, ucSize);
 
       DSIThread_CondSignal(&stCondMessageReady);
 

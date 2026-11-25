@@ -13,6 +13,7 @@ All rights reserved.
 #include "dsi_thread.h"
 #include "dsi_serial_generic.hpp"
 #include "dsi_debug.hpp"
+#include "server_output.hpp"
 
 #include <stdio.h>
 #include <assert.h>
@@ -95,30 +96,14 @@ void readHex(char* buf, const char* txt) {
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char **argv)
 {
+   // The server is deliberately not deleted: it lives until the process ends and the process exit
+   // releases everything, there is nothing to gain from stopping the USB receive thread first.
    Server* pclDemo = new Server();
    pclDemo->WaitForInput();
-   return 0;
+   return 0; // NOSONAR
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Server
-//
-// Constructor, intializes Demo class
-//
-////////////////////////////////////////////////////////////////////////////////
-Server::Server()
-{
-   ucChannelType = CHANNEL_TYPE_INVALID;
-   pclSerialObject = (DSISerialGeneric*)NULL;
-   pclMessageObject = (DSIFramerANT*)NULL;
-   uiDSIThread = (DSI_THREAD_ID)NULL;
-   bMyDone = FALSE;
-   bDone = FALSE;
-   bDisplay = TRUE;
-   bBroadcasting = FALSE;
-
-   memset(aucTransmitBuffer,0,ANT_STANDARD_DATA_PAYLOAD_SIZE);
-}
+// The members of Server are initialized where they are declared, see antserver.h
 
 ////////////////////////////////////////////////////////////////////////////////
 // ~Server
@@ -128,11 +113,23 @@ Server::Server()
 ////////////////////////////////////////////////////////////////////////////////
 Server::~Server()
 {
-   if(pclMessageObject)
-      delete pclMessageObject;
+   ReleaseDevice();
+}
 
+////////////////////////////////////////////////////////////////////////////////
+// ReleaseDevice
+//
+// The receive thread of the USB stick reports to the framer, so the thread has to
+// be stopped before the framer is destroyed.
+//
+////////////////////////////////////////////////////////////////////////////////
+void Server::ReleaseDevice()
+{
    if(pclSerialObject)
-      delete pclSerialObject;
+      pclSerialObject->Close();
+
+   pclMessageObject.reset();
+   pclSerialObject.reset();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -148,7 +145,8 @@ void Server::WaitForInput() {
 		vector<string> res;
 		string delimiter = "/";
 
-		cout << "debug/" << line << "\n";
+		// echo of every request: the host uses the echo of its "ping/<ts>" requests to see that this server is alive
+		serverWriteLine("debug/" + line);
 		
 		size_t pos_start = 0, pos_end, delim_len = delimiter.length();
 		std::string token;
@@ -169,20 +167,20 @@ void Server::WaitForInput() {
 				if (cmd == "open") {
 
 					BOOL opened = Init(stoi(res[3]), 0);
-					std::cout << "response/" << id << "/" << (opened? "true": "false") << "\n";
+					serverWriteLine("response/" + id + "/" + (opened? "true": "false"));
 				}
 				else if (cmd == "close") {
 
 					Close();					
-					std::cout << "response/" << id << "/" << "\n";
+					serverWriteLine("response/" + id + "/");
 				}
 				//printf("response/%s/%s\n", id, "true");
 				//}
 
 			}
 			else if (res[0] == "message") {
-				if (pclMessageObject == NULL) {
-					cout << "error/channel_not_opened\n";
+				if (!pclMessageObject) {
+					serverWriteLine("error/channel_not_opened");
 				}
 				else {
 					const string data = res[1];
@@ -215,10 +213,13 @@ void Server::WaitForInput() {
 //                  If not specified, 2 is passed in as invalid.
 //
 ////////////////////////////////////////////////////////////////////////////////
-BOOL Server::Init(UCHAR ucDeviceNumber_, UCHAR ucChannelType_)
+BOOL Server::Init(UCHAR ucDeviceNumber_, UCHAR /*ucChannelType_*/)
 {
 
    BOOL bStatus;
+
+   // A previous open (that was not closed, or whose open failed) must not leak its objects
+   ReleaseDevice();
 
    // Initialize condition var and mutex
    UCHAR ucCondInit = DSIThread_CondInit(&condTestDone);
@@ -228,7 +229,7 @@ BOOL Server::Init(UCHAR ucDeviceNumber_, UCHAR ucChannelType_)
    assert(ucMutexInit == DSI_THREAD_ENONE);
 
    // Create Serial object.
-   pclSerialObject = new DSISerialGeneric();
+   pclSerialObject = std::make_unique<DSISerialGeneric>();
    assert(pclSerialObject);
 
 
@@ -243,7 +244,7 @@ BOOL Server::Init(UCHAR ucDeviceNumber_, UCHAR ucChannelType_)
    assert(bStatus);
 
    // Create Framer object.
-   pclMessageObject = new DSIFramerANT(pclSerialObject);
+   pclMessageObject = std::make_unique<DSIFramerANT>(pclSerialObject.get());
    assert(pclMessageObject);
 
    // Initialize Framer object.
@@ -251,7 +252,7 @@ BOOL Server::Init(UCHAR ucDeviceNumber_, UCHAR ucChannelType_)
    assert(bStatus);
 
    // Let Serial know about Framer.
-   pclSerialObject->SetCallback(pclMessageObject);
+   pclSerialObject->SetCallback(pclMessageObject.get());
 
    // Open Serial.
    bStatus = pclSerialObject->Open();

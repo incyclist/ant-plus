@@ -1,0 +1,129 @@
+name: AntServer (Windows)
+
+# Builds antserver.exe (the ANT+ server that the desktop app ships as AntServer.bin) from antserver/.
+#
+# The binary has to keep using the same shared libraries as the one shipped with the desktop app
+# (MSVCP140.dll / VCRUNTIME140.dll from the VS2015 runtime, libusb0.dll and the SiLabs DLLs that are
+# loaded at runtime). Therefore the build uses the same SDK sources from this repo and pins the
+# MSVC v140 toolset instead of the toolset of the runner image, and the job fails if the binary imports
+# a newer runtime.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'antserver/**'
+      - '.github/workflows/antserver.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'antserver/**'
+      - '.github/workflows/antserver.yml'
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce # v2
+
+      - name: Install MSVC v140 toolset
+        shell: pwsh
+        run: |
+          $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
+          $vs = & "$installer\vswhere.exe" -latest -property installationPath
+          $proc = Start-Process -FilePath "$installer\vs_installer.exe" -Wait -PassThru -ArgumentList @(
+            'modify', '--installPath', "`"$vs`"",
+            '--add', 'Microsoft.VisualStudio.Component.VC.140',
+            '--quiet', '--norestart', '--nocache')
+          # 3010 = success, reboot required
+          if ($proc.ExitCode -ne 0 -and $proc.ExitCode -ne 3010) { throw "installing the v140 toolset failed: $($proc.ExitCode)" }
+
+      - name: Build antserver.exe (Release, x86, v140)
+        shell: pwsh
+        run: |
+          # v140 defaults to the Windows 8.1 SDK, which is not on the runner. Use the newest Windows 10 SDK
+          # that the 2015 compiler can still parse: the headers of 10.0.22000 and newer need intrinsics
+          # (_mm_loadu_si64) that v140 does not have.
+          $sdk = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\Include" -Directory |
+                   Where-Object { $_.Name -match '^10\.' -and [version]$_.Name -lt [version]'10.0.22000.0' } |
+                   Sort-Object { [version]$_.Name } | Select-Object -Last 1
+          if (-not $sdk) { throw 'no Windows 10 SDK older than 10.0.22000 on this runner' }
+          Write-Host "Windows SDK: $($sdk.Name)"
+          msbuild antserver\ANT_Libraries.sln /m /nologo /p:Configuration=Release /p:Platform=x86 `
+            /p:PlatformToolset=v140 /p:WindowsTargetPlatformVersion=$($sdk.Name)
+          if ($LASTEXITCODE -ne 0) { throw 'build failed' }
+
+      - name: Check the shared libraries the binary depends on
+        shell: pwsh
+        run: |
+          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $dumpbin = Get-ChildItem "$vsPath\VC\Tools\MSVC" -Recurse -Filter dumpbin.exe |
+                       Where-Object { $_.FullName -match 'Hostx64\\x64' } | Select-Object -First 1
+          $out = & $dumpbin.FullName /dependents antserver\Release\antserver.exe
+          $deps = $out | Where-Object { $_ -match '^\s+\S+\.dll\s*$' } | ForEach-Object { $_.Trim() }
+          $deps | Tee-Object -FilePath dependencies.txt
+          # the desktop app ships MSVCP140.dll and VCRUNTIME140.dll of the VS2015 runtime only
+          $newer = $deps | Where-Object { $_ -match '(?i)^(vcruntime140_\d|msvcp140_\d|concrt|vcomp|msvcr)' }
+          if ($newer) { throw "binary depends on runtime libraries that the desktop app does not ship: $newer" }
+
+      - name: Smoke test (no ANT+ stick needed)
+        shell: pwsh
+        run: |
+          # the server echoes every request as debug/<request>; the host uses the echo of ping/<ts> as heartbeat
+          $psi = New-Object System.Diagnostics.ProcessStartInfo
+          $psi.FileName = (Resolve-Path antserver\Release\antserver.exe).Path
+          $psi.RedirectStandardInput = $true
+          $psi.RedirectStandardOutput = $true
+          $psi.UseShellExecute = $false
+          $p = [System.Diagnostics.Process]::Start($psi)
+
+          function Send([string]$line) {
+            $p.StandardInput.WriteLine($line)
+            $p.StandardInput.Flush()
+          }
+
+          # returns the first output line that starts with the given prefix (the echo of the request comes first)
+          function Wait-Line([string]$prefix) {
+            $deadline = [DateTime]::UtcNow.AddSeconds(20)
+            while ($true) {
+              $left = [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds
+              $read = $p.StandardOutput.ReadLineAsync()
+              if ($left -le 0 -or -not $read.Wait($left)) { $p.Kill(); throw "no output line starting with '$prefix'" }
+              if ($null -eq $read.Result) { throw 'server closed its output' }
+              if ($read.Result.StartsWith($prefix)) { return $read.Result }
+            }
+          }
+
+          Send 'ping/42'
+          Wait-Line 'debug/ping/42' | Out-Null
+
+          # open and close the device twice. There is no stick on the runner, so open fails, but it has to answer,
+          # release what it created and must not crash when it is opened again
+          foreach ($id in 1..4) {
+            if ($id % 2 -eq 1) { Send "request/$id/open/0" } else { Send "request/$id/close" }
+            Write-Host (Wait-Line "response/$id/")
+          }
+
+          Send 'ping/43'
+          Wait-Line 'debug/ping/43' | Out-Null
+
+          $p.StandardInput.Close()
+          if (-not $p.WaitForExit(5000)) { $p.Kill(); throw 'server did not exit after stdin was closed' }
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item antserver\Release\antserver.exe dist\ANTserver.bin
+          Copy-Item dependencies.txt dist\dependencies.txt
+          Get-FileHash dist\ANTserver.bin -Algorithm SHA256 | ForEach-Object { "$($_.Hash)  ANTserver.bin" } | Set-Content dist\ANTserver.bin.sha256
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ANTserver.bin
+          path: dist/
+          if-no-files-found: error
