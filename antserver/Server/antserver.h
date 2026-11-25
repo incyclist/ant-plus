@@ -16,6 +16,8 @@ All rights reserved.
 
 #include <array>
 #include <memory>
+#include <string>
+#include <vector>
 
 #define CHANNEL_TYPE_MASTER   (0)
 #define CHANNEL_TYPE_SLAVE    (1)
@@ -44,6 +46,12 @@ private:
    // Stops the receive thread of the USB stick and then destroys the framer and the serial object
    void ReleaseDevice();
 
+   // "request/<id>/<command>[/<argument>]": every request that has an id is answered with "response/<id>/..."
+   void HandleRequest(const std::vector<std::string>& res);
+
+   // "message/<hex>": the message is validated before it is sent to the stick
+   void HandleMessage(const std::vector<std::string>& res);
+
    BOOL bBursting = FALSE; //holds whether the bursting phase of the test has started
    BOOL bBroadcasting = FALSE;
    BOOL bMyDone = FALSE;
@@ -58,9 +66,6 @@ private:
    BOOL bDisplay = TRUE;
 
    std::array<UCHAR, ANT_STANDARD_DATA_PAYLOAD_SIZE> aucTransmitBuffer{};
-
-
-// UCHAR pucData[USER_DATA_LENGTH];  //data to transfer in a burst
 
 
 

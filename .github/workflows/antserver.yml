@@ -98,8 +98,36 @@ jobs:
             }
           }
 
+          # sends one input line followed by a marker ping and returns everything the server wrote up to the echo of the
+          # marker, without the echoes (debug/...). An answer that is missing or too much is therefore noticed.
+          $script:marker = 0
+          function Get-Answers([string]$line) {
+            $script:marker++
+            $last = "debug/ping/m$($script:marker)"
+            Send $line
+            Send "ping/m$($script:marker)"
+            $answers = @()
+            while ($true) {
+              $next = Wait-Line ''
+              if ($next -eq $last) { break }
+              if (-not $next.StartsWith('debug/')) { $answers += $next }
+            }
+            return $answers
+          }
+
+          function Assert-Answers([string]$line, [string[]]$expected) {
+            $got = @(Get-Answers $line)
+            if (($got -join '|') -ne ($expected -join '|')) {
+              throw "input '$line': expected [$($expected -join ', ')] but got [$($got -join ', ')]"
+            }
+            Write-Host "ok: $($line.Substring(0, [Math]::Min(40, $line.Length)))"
+          }
+
           Send 'ping/42'
           Wait-Line 'debug/ping/42' | Out-Null
+
+          # no device was opened yet
+          Assert-Answers 'message/a40102' @('error/channel_not_opened')
 
           # open and close the device twice. There is no stick on the runner, so open fails, but it has to answer,
           # release what it created and must not crash when it is opened again
@@ -107,6 +135,25 @@ jobs:
             if ($id % 2 -eq 1) { Send "request/$id/open/0" } else { Send "request/$id/close" }
             Write-Host (Wait-Line "response/$id/")
           }
+
+          # malformed input must be rejected and the server must keep running. After a failed open the framer object
+          # still exists, so messages reach the parser. The longest valid message is id + 41 data bytes + checksum.
+          Send 'request/5/open/0'
+          Wait-Line 'response/5/' | Out-Null
+          $invalid = @('error/message/invalid_message')
+          Assert-Answers ('message/' + ('a' * 90)) $invalid
+          Assert-Answers 'message/abc' $invalid
+          Assert-Answers 'message/zzzz' $invalid
+          Assert-Answers 'message' $invalid
+          Assert-Answers 'message/' $invalid
+          Assert-Answers 'message/a401' $invalid
+          Assert-Answers ('message/' + ('aa' * 44)) $invalid
+          Assert-Answers ('message/' + ('aa' * 43)) @()
+          Assert-Answers 'request' @('error/request/invalid_request')
+          Assert-Answers 'request/7' @('response/7/false')
+          Assert-Answers 'request/8/open/abc' @('response/8/false')
+          Assert-Answers 'request/9/bogus' @('response/9/false')
+          Assert-Answers 'request/10/open/300' @('response/10/false')
 
           Send 'ping/43'
           Wait-Line 'debug/ping/43' | Out-Null
